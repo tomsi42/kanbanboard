@@ -11,6 +11,27 @@
       .sort((a, b) => a.position - b.position);
   }
 
+  // Track drag state to distinguish clicks from drags
+  let isDragging = $state(false);
+  let dragStartTime = $state(0);
+
+  function handleDragStart() {
+    isDragging = false;
+    dragStartTime = Date.now();
+  }
+
+  function handleDragMove() {
+    // If pointer moved during drag, it's a real drag not a click
+    isDragging = true;
+  }
+
+  function handleCardClick(task) {
+    // Only fire click if this wasn't a drag operation
+    if (!isDragging && Date.now() - dragStartTime < 200) {
+      onTaskClick?.(task);
+    }
+  }
+
   function handleDrop(state) {
     const { sourceContainer, targetContainer, draggedItem } = state;
 
@@ -40,11 +61,15 @@
         use:droppable={{ container: column.id, callbacks: { onDrop: handleDrop } }}
       >
         {#each columnTasks as task (task.id)}
+          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
           <div
             class="card-wrapper"
             use:draggable={{ container: column.id, dragData: task }}
+            onpointerdown={handleDragStart}
+            onpointermove={handleDragMove}
+            onclick={() => handleCardClick(task)}
           >
-            <TaskCard {task} labels={project.labels} onclick={onTaskClick} />
+            <TaskCard {task} labels={project.labels} />
           </div>
         {/each}
         {#if columnTasks.length === 0}

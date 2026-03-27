@@ -125,10 +125,7 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="overlay" onclick={onClose} role="presentation">
-  <!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events -->
-  <div class="panel" onclick={(e) => e.stopPropagation()} role="dialog">
+<div class="panel" role="dialog">
     <div class="panel-header">
       <span class="saving-indicator">{saving ? 'Saving...' : ''}</span>
       <button class="close-btn" onclick={onClose}>✕</button>
@@ -256,27 +253,22 @@
       </div>
     </div>
   </div>
-</div>
+
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.2);
-    z-index: 200;
-    display: flex;
-    justify-content: flex-end;
-  }
-
   .panel {
+    position: fixed;
+    top: 0;
+    right: 0;
     width: 400px;
     max-width: 90vw;
     background: white;
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.15);
     display: flex;
     flex-direction: column;
     height: 100vh;
     overflow-y: auto;
+    z-index: 200;
   }
 
   .panel-header {

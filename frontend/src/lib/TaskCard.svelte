@@ -1,10 +1,10 @@
 <script>
-  let { task, labels = [], onclick } = $props();
+  let { task, labels = [] } = $props();
 
   let label = $derived(labels.find(l => l.id === task.labelId));
 </script>
 
-<button class="card" onclick={() => onclick?.(task)}>
+<div class="card">
   {#if label}
     <span class="label" style="background: {label.color}">{label.name}</span>
   {/if}
@@ -12,7 +12,7 @@
   {#if task.parentTaskId}
     <span class="subtask-indicator">↳ subtask</span>
   {/if}
-</button>
+</div>
 
 <style>
   .card {
