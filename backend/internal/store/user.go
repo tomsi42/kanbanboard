@@ -66,3 +66,28 @@ func GetUserByID(db *sql.DB, id string) (model.User, error) {
 	}
 	return u, nil
 }
+
+// UpdateUser updates a user's name and email.
+func UpdateUser(db *sql.DB, user model.User) (model.User, error) {
+	err := db.QueryRow(`
+		UPDATE users SET name = $1, email = $2, updated_at = NOW()
+		WHERE id = $3
+		RETURNING updated_at
+	`, user.Name, user.Email, user.ID).Scan(&user.UpdatedAt)
+	if err != nil {
+		return model.User{}, fmt.Errorf("update user: %w", err)
+	}
+	return user, nil
+}
+
+// UpdatePassword updates a user's password hash.
+func UpdatePassword(db *sql.DB, userID, passwordHash string) error {
+	_, err := db.Exec(
+		"UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2",
+		passwordHash, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+	return nil
+}

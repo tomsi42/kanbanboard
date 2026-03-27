@@ -82,6 +82,14 @@ export function moveTask(projectId, taskId, columnId, position) {
   return request('PUT', `/projects/${projectId}/tasks/${taskId}/move`, { columnId, position });
 }
 
+export function updateProfile(data) {
+  return request('PUT', '/users/me', data);
+}
+
+export function changePassword(data) {
+  return request('PUT', '/users/me/password', data);
+}
+
 export function deleteTask(projectId, taskId) {
   return request('DELETE', `/projects/${projectId}/tasks/${taskId}`);
 }

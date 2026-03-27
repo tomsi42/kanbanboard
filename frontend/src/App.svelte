@@ -7,6 +7,8 @@
   import Board from './lib/Board.svelte';
   import TaskDetailPanel from './lib/TaskDetailPanel.svelte';
   import LabelFilter from './lib/LabelFilter.svelte';
+  import UserMenu from './lib/UserMenu.svelte';
+  import ProfilePage from './lib/ProfilePage.svelte';
 
   let loading = $state(true);
   let setupRequired = $state(false);
@@ -19,6 +21,7 @@
   let newTaskTitle = $state('');
   let selectedTask = $state(null);
   let filterLabelId = $state('');
+  let currentView = $state('board'); // 'board' | 'profile'
 
   async function checkStatus() {
     loading = true;
@@ -144,6 +147,10 @@
     selectedTask = null;
   }
 
+  function handleProfileUpdated(updatedUser) {
+    currentUser = updatedUser;
+  }
+
   async function handleTaskMove(taskId, columnId, position) {
     if (!currentProject) return;
     try {
@@ -201,13 +208,22 @@
         {/if}
       </div>
       <div class="header-right">
-        <span class="user-name">{currentUser.name}</span>
-        <button class="sign-out" onclick={handleLogout}>Sign Out</button>
+        <UserMenu
+          userName={currentUser.name}
+          onProfile={() => currentView = 'profile'}
+          onLogout={handleLogout}
+        />
       </div>
     </header>
 
     <main>
-      {#if projects.length === 0}
+      {#if currentView === 'profile'}
+        <ProfilePage
+          user={currentUser}
+          onBack={() => currentView = 'board'}
+          onProfileUpdated={handleProfileUpdated}
+        />
+      {:else if projects.length === 0}
         <div class="center empty-state">
           <h2>Welcome to {appTitle}</h2>
           <p>Create your first project to get started.</p>
@@ -274,25 +290,6 @@
     display: flex;
     align-items: center;
     gap: 12px;
-  }
-
-  .user-name {
-    color: #555;
-    font-size: 0.875rem;
-  }
-
-  .sign-out {
-    padding: 6px 12px;
-    background: none;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    cursor: pointer;
-    color: #555;
-  }
-
-  .sign-out:hover {
-    background: #f5f5f5;
   }
 
   main {

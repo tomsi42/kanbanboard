@@ -49,8 +49,14 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/logout", handler.HandleLogout(db))
 	mux.HandleFunc("GET /api/v1/auth/me", handler.HandleMe(db))
 
-	// Project routes (auth required)
+	// Auth middleware helper
 	auth := func(h http.HandlerFunc) http.HandlerFunc { return middleware.RequireAuth(db, h) }
+
+	// User routes (auth required)
+	mux.HandleFunc("PUT /api/v1/users/me", auth(handler.HandleUpdateProfile(db)))
+	mux.HandleFunc("PUT /api/v1/users/me/password", auth(handler.HandleChangePassword(db)))
+
+	// Project routes (auth required)
 	mux.HandleFunc("POST /api/v1/projects", auth(handler.HandleCreateProject(db)))
 	mux.HandleFunc("GET /api/v1/projects", auth(handler.HandleListProjects(db)))
 	mux.HandleFunc("GET /api/v1/projects/{id}", auth(handler.HandleGetProject(db)))
