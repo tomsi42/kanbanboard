@@ -1,0 +1,143 @@
+---
+name: planning-checklist
+description: Gate between planning phases - ensures each phase is complete before moving to the next. Covers user stories, domain encoding, architecture, UX, and dev workflow. Prevents the common problem of starting to code too early.
+---
+
+# Planning Checklist
+
+This skill gates transitions between planning phases. Do not move to the next phase until the current phase passes its checklist. Do not start implementation until all phases pass.
+
+## Planning phases in order
+
+```
+User Stories → Domain Encoding → Architecture (incl. tool versions, API conventions) → Testing Strategy → UX Layout (revisit stories) → Dev Workflow → Implementation Plan → Debrief
+```
+
+Each phase builds on the previous. Skipping or rushing a phase creates problems that are expensive to fix later.
+
+The **Debrief** at the end reviews the planning process itself: what worked, what was missed, and whether skills need updating before starting implementation.
+
+## Phase 1: User Stories
+
+Run the `user-stories` skill, then verify:
+
+- [ ] User types identified
+- [ ] Stories written with action and benefit
+- [ ] Stories prioritized (must/should/nice)
+- [ ] Must-have and should-have stories have acceptance criteria
+- [ ] No combined stories - each story is one need
+- [ ] Stories describe needs, not solutions
+- [ ] User confirms the stories capture what they want to build
+
+**Gate question:** "Do these stories cover everything the application needs to do?"
+
+If no → elicit more stories or re-prioritize.
+
+## Phase 2: Domain Encoding
+
+Run the `domain-encoding` skill, then verify:
+
+- [ ] Domain model has 5-7 or fewer core entities
+- [ ] Claude can explain the domain back to the user correctly
+- [ ] Every entity has a clear, one-sentence reason to exist
+- [ ] Over-specialization has been checked explicitly
+- [ ] No entities exist because of workflow descriptions rather than domain concepts
+- [ ] Domain model supports all must-have user stories
+- [ ] User confirms the model matches their understanding
+
+**Gate question:** "Can you explain this domain to someone unfamiliar in 2 minutes?"
+
+If no → go back to domain encoding.
+
+## Phase 3: Architecture
+
+Run the `architecture-review` skill, then verify:
+
+- [ ] Tech stack decisions are made with rationale for each
+- [ ] Tool versions pinned to current stable releases
+- [ ] API conventions defined (if frontend-backend split)
+- [ ] Project structure is defined and maps to the domain model
+- [ ] Architecture complexity matches the project scale
+- [ ] No speculative complexity
+- [ ] Key decisions documented (ADRs for significant trade-offs)
+- [ ] User confirms the architecture makes sense
+
+**Gate question:** "Is this the simplest architecture that could work for this project?"
+
+If no → simplify and re-verify.
+
+## Phase 3b: Testing Strategy
+
+Run the `testing-strategy` skill, then verify:
+
+- [ ] Test levels identified (which layers get tested)
+- [ ] Test tools chosen for each level
+- [ ] When to write tests is agreed
+- [ ] Test file location and naming conventions defined
+- [ ] User understands and agrees to the strategy
+
+**Gate question:** "Do we know what gets tested, how, and when?"
+
+If no → clarify the strategy.
+
+## Phase 4: UX Layout
+
+Run the `ux-layout` skill, then verify:
+
+- [ ] User goals identified (3-5 main goals)
+- [ ] User journeys mapped for each goal
+- [ ] Screen inventory exists with navigation map
+- [ ] Most common task reachable in minimal steps
+- [ ] UX is NOT a 1:1 mirror of the domain model
+- [ ] User confirms the experience matches how they'd want to use the app
+
+**Revisit user stories:**
+- [ ] Every must-have story is served by the UX
+- [ ] No screens exist that don't serve any story
+- [ ] Highest-priority stories are the easiest to accomplish in the UX
+
+**Gate question:** "Would a first-time user know what to do?"
+
+If no → simplify the UX and re-verify.
+
+## Phase 5: Dev Workflow
+
+Run the `dev-workflow` skill, then verify:
+
+- [ ] Branching strategy decided
+- [ ] Versioning scheme agreed
+- [ ] Review and acceptance flow defined
+- [ ] Commit practices established
+- [ ] User understands and agrees to the workflow
+
+**Gate question:** "Do we both know exactly what happens when a sub-phase is done?"
+
+If no → clarify the workflow.
+
+## Project Setup
+
+All five phases pass. Before writing feature code, set up the project:
+
+- [ ] Initialize git repo
+- [ ] Add LICENSE
+- [ ] Create README.md (project description, tech stack, how to run - from planning outputs)
+- [ ] Create CLAUDE.md (navigation hub: project overview, build commands, pointers to skills and docs)
+- [ ] Create domain skills in .claude/skills/ (encode domain model and architecture decisions)
+- [ ] Create initial project structure (directories and skeleton from architecture phase)
+- [ ] Store planning artifacts in docs/plan/ (user stories, screen maps, phase breakdown)
+- [ ] First commit and tag: `v0.0.0` - project skeleton
+
+## Create the implementation plan
+
+Break the work into phases and sub-phases:
+- Map user stories to phases (must-have stories in early phases)
+- Define what each sub-phase delivers
+- Assign version numbers to each sub-phase
+- Include documentation as one of the final phases (user guide, API guide if applicable)
+- Start with Phase 1, sub-phase 1
+
+## When to re-run this checklist
+
+- When you feel lost during implementation → which phase assumption was wrong?
+- When the user identifies a problem → which phase needs revisiting?
+- When scope changes → re-run from the affected phase forward

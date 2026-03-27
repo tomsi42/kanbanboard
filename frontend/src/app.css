@@ -1,0 +1,16 @@
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #333;
+  background: #fff;
+}
+
+body {
+  margin: 0;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+}

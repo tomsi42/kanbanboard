@@ -1,0 +1,78 @@
+---
+name: dev-workflow
+description: Define the development workflow before the first commit - branching strategy, versioning, review gates, and how code moves from idea to main. Use during planning, before implementation starts.
+---
+
+# Development Workflow
+
+Establish how development will be conducted before writing any code. These decisions are easy to make up front and painful to retrofit.
+
+## Process
+
+### Step 1: Branching strategy
+
+Decide between two approaches:
+
+**Option A: Feature branches (recommended for phased projects)**
+- Each phase/sub-phase gets its own branch
+- Work happens on the branch
+- User reviews and tests at each sub-phase boundary
+- Merge to main when the sub-phase is accepted
+- Main always contains accepted, working code
+
+**Option B: Trunk-based (working directly on main)**
+- All work happens on main
+- Suitable for solo projects with very small increments
+- Requires discipline to never leave main broken
+
+Discuss trade-offs with the user and decide.
+
+### Step 2: Versioning
+
+For planned, phased projects, use phase-based versioning during development:
+
+```
+v0.{phase}.{subphase}
+```
+
+- `v0.1.0` - Phase 1 starts
+- `v0.1.1` - Phase 1, sub-phase 1 complete
+- `v0.1.2` - Phase 1, sub-phase 2 complete
+- `v0.2.0` - Phase 2 starts (sub-phase resets)
+- `v1.0.0` - Plan fully implemented, first release
+
+Version is updated when the user accepts a sub-phase, not on every commit.
+
+### Step 3: Review and acceptance flow
+
+Define the workflow for each sub-phase:
+
+1. Create branch from main (if using feature branches)
+2. Implement the sub-phase
+3. Stop and present to user for review
+4. User tests what's available
+5. If accepted: commit, update version, merge to main, tag
+6. If not accepted: discuss issues, fix, return to step 3
+
+### Step 4: Commit practices
+
+- Commit messages: `type: description` (feat, fix, refactor, test, docs, chore)
+- Small commits: one logical change per commit
+- Never commit broken code to main
+- Tag accepted sub-phases: `git tag v0.1.1`
+
+### Step 5: Document the workflow
+
+Write down the agreed workflow so it's followed consistently throughout the project. Include:
+- Branching strategy chosen and why
+- Versioning scheme
+- Review/acceptance process
+- Commit message format
+
+## Exit criteria
+
+- [ ] Branching strategy decided
+- [ ] Versioning scheme agreed
+- [ ] Review and acceptance flow defined
+- [ ] Commit practices established
+- [ ] User understands and agrees to the workflow
