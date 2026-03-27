@@ -93,3 +93,58 @@ func GetTask(db *sql.DB, taskID string) (model.Task, error) {
 	}
 	return t, nil
 }
+
+// UpdateTask updates all editable fields of a task.
+func UpdateTask(db *sql.DB, task model.Task) (model.Task, error) {
+	err := db.QueryRow(`
+		UPDATE tasks SET
+			title = $1, description = $2, column_id = $3, label_id = $4,
+			assignee_id = $5, priority = $6, target_version = $7, due_date = $8,
+			updated_at = NOW()
+		WHERE id = $9
+		RETURNING updated_at
+	`, task.Title, task.Description, task.ColumnID, task.LabelID,
+		task.AssigneeID, task.Priority, task.TargetVersion, task.DueDate,
+		task.ID,
+	).Scan(&task.UpdatedAt)
+	if err != nil {
+		return model.Task{}, fmt.Errorf("update task: %w", err)
+	}
+	return task, nil
+}
+
+// MoveTask moves a task to a new column, placing it at the end.
+func MoveTask(db *sql.DB, taskID, newColumnID string) error {
+	// Get next position in the target column
+	var maxPos sql.NullInt64
+	err := db.QueryRow(
+		"SELECT MAX(position) FROM tasks WHERE column_id = $1",
+		newColumnID,
+	).Scan(&maxPos)
+	if err != nil {
+		return fmt.Errorf("get max position: %w", err)
+	}
+
+	newPos := 0
+	if maxPos.Valid {
+		newPos = int(maxPos.Int64) + 1
+	}
+
+	_, err = db.Exec(
+		"UPDATE tasks SET column_id = $1, position = $2, updated_at = NOW() WHERE id = $3",
+		newColumnID, newPos, taskID,
+	)
+	if err != nil {
+		return fmt.Errorf("move task: %w", err)
+	}
+	return nil
+}
+
+// DeleteTask removes a task by ID.
+func DeleteTask(db *sql.DB, taskID string) error {
+	_, err := db.Exec("DELETE FROM tasks WHERE id = $1", taskID)
+	if err != nil {
+		return fmt.Errorf("delete task: %w", err)
+	}
+	return nil
+}

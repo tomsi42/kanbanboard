@@ -12,6 +12,11 @@ async function request(method, path, body = null) {
   }
 
   const response = await fetch(`${BASE}${path}`, options);
+
+  if (response.status === 204) {
+    return null;
+  }
+
   const data = await response.json();
 
   if (!response.ok) {
@@ -67,4 +72,12 @@ export function listTasks(projectId) {
 
 export function createTask(projectId, data) {
   return request('POST', `/projects/${projectId}/tasks`, data);
+}
+
+export function updateTask(projectId, taskId, data) {
+  return request('PUT', `/projects/${projectId}/tasks/${taskId}`, data);
+}
+
+export function deleteTask(projectId, taskId) {
+  return request('DELETE', `/projects/${projectId}/tasks/${taskId}`);
 }

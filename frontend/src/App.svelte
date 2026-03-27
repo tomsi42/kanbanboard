@@ -5,6 +5,7 @@
   import ProjectDropdown from './lib/ProjectDropdown.svelte';
   import CreateProjectModal from './lib/CreateProjectModal.svelte';
   import Board from './lib/Board.svelte';
+  import TaskDetailPanel from './lib/TaskDetailPanel.svelte';
 
   let loading = $state(true);
   let setupRequired = $state(false);
@@ -15,6 +16,7 @@
   let showCreateProject = $state(false);
   let addingTask = $state(false);
   let newTaskTitle = $state('');
+  let selectedTask = $state(null);
 
   async function checkStatus() {
     loading = true;
@@ -118,7 +120,25 @@
   }
 
   function handleTaskClick(task) {
-    // Task detail panel comes in Phase 2.3
+    selectedTask = task;
+  }
+
+  async function handleTaskUpdate() {
+    await reloadCurrentProject();
+    // Re-find the selected task in the updated project
+    if (selectedTask && currentProject) {
+      const updated = currentProject.tasks.find(t => t.id === selectedTask.id);
+      selectedTask = updated || null;
+    }
+  }
+
+  function handleTaskDelete() {
+    selectedTask = null;
+    reloadCurrentProject();
+  }
+
+  function closeTaskPanel() {
+    selectedTask = null;
   }
 
   $effect(() => {
@@ -186,6 +206,16 @@
     <CreateProjectModal
       onCreated={handleProjectCreated}
       onCancel={() => showCreateProject = false}
+    />
+  {/if}
+
+  {#if selectedTask && currentProject}
+    <TaskDetailPanel
+      task={selectedTask}
+      project={currentProject}
+      onUpdate={handleTaskUpdate}
+      onDelete={handleTaskDelete}
+      onClose={closeTaskPanel}
     />
   {/if}
 {/if}
