@@ -136,6 +136,11 @@ Break the work into phases and sub-phases:
 - Include documentation as one of the final phases (user guide, API guide if applicable)
 - Start with Phase 1, sub-phase 1
 
+**Rules for sub-phases:**
+- Never combine sub-phases, no matter how small they are. Each sub-phase is planned, implemented, tested, and accepted independently.
+- Each sub-phase gets its own plan before coding starts.
+- Tagging happens only after the user has tested and accepted the sub-phase.
+
 ## When to re-run this checklist
 
 - When you feel lost during implementation → which phase assumption was wrong?

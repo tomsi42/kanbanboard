@@ -43,25 +43,40 @@ v0.{phase}.{subphase}
 
 Version is updated when the user accepts a sub-phase, not on every commit.
 
-### Step 3: Review and acceptance flow
+### Step 3: Sub-phase planning
+
+Before starting each sub-phase, create a plan:
+
+1. Scope what the sub-phase will deliver
+2. List the files to create/modify
+3. Define verification steps and manual test checklist
+4. Get user approval of the plan before writing code
+
+This ensures each sub-phase is well-scoped and avoids wasted work. Never combine multiple sub-phases into one plan — each sub-phase is planned and delivered independently, no matter how small.
+
+### Step 4: Review and acceptance flow
 
 Define the workflow for each sub-phase:
 
 1. Create branch from main (if using feature branches)
-2. Implement the sub-phase
-3. Stop and present to user for review
-4. User tests what's available
-5. If accepted: commit, update version, merge to main, tag
-6. If not accepted: discuss issues, fix, return to step 3
+2. Plan the sub-phase (Step 3 above)
+3. Implement the sub-phase
+4. Commit and push code
+5. Present to user for review with a manual test checklist
+6. User tests what's available
+7. If accepted: tag with version, push tag
+8. If not accepted: discuss issues, fix, return to step 5
 
-### Step 4: Commit practices
+**Important:** Tagging happens only after the user has tested and accepted the sub-phase. Do not tag immediately after coding — the user's acceptance is the gate.
+
+### Step 5: Commit practices
 
 - Commit messages: `type: description` (feat, fix, refactor, test, docs, chore)
 - Small commits: one logical change per commit
 - Never commit broken code to main
 - Tag accepted sub-phases: `git tag v0.1.1`
 
-### Step 5: Document the workflow
+### Step 6: Document the workflow
 
 Write down the agreed workflow so it's followed consistently throughout the project. Include:
 - Branching strategy chosen and why
