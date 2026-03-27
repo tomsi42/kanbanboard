@@ -102,3 +102,30 @@ func HandleChangePassword(db *sql.DB) http.HandlerFunc {
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}
 }
+
+type basicUser struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+// HandleListUsersBasic returns a lightweight list of all active users (id, name, email).
+func HandleListUsersBasic(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		users, err := store.ListUsers(db)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to list users")
+			return
+		}
+
+		result := make([]basicUser, 0, len(users))
+		for _, u := range users {
+			if u.IsActive {
+				result = append(result, basicUser{ID: u.ID, Name: u.Name, Email: u.Email})
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	}
+}

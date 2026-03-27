@@ -60,8 +60,18 @@ func main() {
 	mux.HandleFunc("PUT /api/v1/admin/users/{userId}/password", admin(handler.HandleResetPassword(db)))
 
 	// User routes (auth required)
+	mux.HandleFunc("GET /api/v1/users", auth(handler.HandleListUsersBasic(db)))
 	mux.HandleFunc("PUT /api/v1/users/me", auth(handler.HandleUpdateProfile(db)))
 	mux.HandleFunc("PUT /api/v1/users/me/password", auth(handler.HandleChangePassword(db)))
+
+	// Team routes (auth required, owner checks in handler)
+	mux.HandleFunc("GET /api/v1/teams", auth(handler.HandleListTeams(db)))
+	mux.HandleFunc("POST /api/v1/teams", auth(handler.HandleCreateTeam(db)))
+	mux.HandleFunc("PUT /api/v1/teams/{teamId}", auth(handler.HandleUpdateTeam(db)))
+	mux.HandleFunc("DELETE /api/v1/teams/{teamId}", auth(handler.HandleDeleteTeam(db)))
+	mux.HandleFunc("GET /api/v1/teams/{teamId}/members", auth(handler.HandleListTeamMembers(db)))
+	mux.HandleFunc("POST /api/v1/teams/{teamId}/members", auth(handler.HandleAddTeamMember(db)))
+	mux.HandleFunc("DELETE /api/v1/teams/{teamId}/members/{userId}", auth(handler.HandleRemoveTeamMember(db)))
 
 	// Project routes (auth required)
 	mux.HandleFunc("POST /api/v1/projects", auth(handler.HandleCreateProject(db)))

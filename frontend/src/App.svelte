@@ -11,6 +11,7 @@
   import ProfilePage from './lib/ProfilePage.svelte';
   import ProjectSettings from './lib/ProjectSettings.svelte';
   import AdminPage from './lib/AdminPage.svelte';
+  import TeamsPage from './lib/TeamsPage.svelte';
 
   let loading = $state(true);
   let setupRequired = $state(false);
@@ -23,7 +24,7 @@
   let newTaskTitle = $state('');
   let selectedTask = $state(null);
   let filterLabelId = $state('');
-  let currentView = $state('board'); // 'board' | 'profile' | 'settings' | 'admin'
+  let currentView = $state('board'); // 'board' | 'profile' | 'settings' | 'admin' | 'teams'
 
   async function checkStatus() {
     loading = true;
@@ -225,7 +226,9 @@
         <UserMenu
           userName={currentUser.name}
           isAdmin={currentUser.isAdmin}
+          isTeamManager={currentUser.isTeamManager}
           onProfile={() => currentView = 'profile'}
+          onTeams={() => currentView = 'teams'}
           onAdmin={() => currentView = 'admin'}
           onLogout={handleLogout}
         />
@@ -233,7 +236,9 @@
     </header>
 
     <main>
-      {#if currentView === 'admin'}
+      {#if currentView === 'teams'}
+        <TeamsPage onBack={() => currentView = 'board'} />
+      {:else if currentView === 'admin'}
         <AdminPage onBack={() => currentView = 'board'} />
       {:else if currentView === 'settings' && currentProject}
         <ProjectSettings

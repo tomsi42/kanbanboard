@@ -134,6 +134,38 @@ export function adminResetPassword(userId, password) {
   return request('PUT', `/admin/users/${userId}/password`, { password });
 }
 
+export function listUsersBasic() {
+  return request('GET', '/users');
+}
+
+export function listTeams() {
+  return request('GET', '/teams');
+}
+
+export function createTeam(name) {
+  return request('POST', '/teams', { name });
+}
+
+export function updateTeam(teamId, name) {
+  return request('PUT', `/teams/${teamId}`, { name });
+}
+
+export function deleteTeam(teamId) {
+  return request('DELETE', `/teams/${teamId}`);
+}
+
+export function listTeamMembers(teamId) {
+  return request('GET', `/teams/${teamId}/members`);
+}
+
+export function addTeamMember(teamId, userId) {
+  return request('POST', `/teams/${teamId}/members`, { userId });
+}
+
+export function removeTeamMember(teamId, userId) {
+  return request('DELETE', `/teams/${teamId}/members/${userId}`);
+}
+
 export function changePassword(data) {
   return request('PUT', '/users/me/password', data);
 }
