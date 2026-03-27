@@ -127,6 +127,7 @@ All five phases pass. Before writing feature code, set up the project:
 - [ ] Add LICENSE
 - [ ] Create README.md (project description, tech stack, how to run - from planning outputs)
 - [ ] Create CLAUDE.md (navigation hub: project overview, build commands, pointers to skills and docs)
+- [ ] Create LEARNINGS.md (empty, grows during development with discoveries and gotchas)
 - [ ] Create domain skills in .claude/skills/ (encode domain model and architecture decisions)
 - [ ] Create initial project structure (directories and skeleton from architecture phase)
 - [ ] Store planning artifacts in docs/plan/ (user stories, screen maps, phase breakdown)

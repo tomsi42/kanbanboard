@@ -84,6 +84,31 @@ Automated tests must pass before presenting a sub-phase for acceptance:
 - If the testing strategy says backend tests are required, they must exist and pass
 - Manual test checklist is for the user; automated tests are for the developer
 
+### Step 4d: LEARNINGS.md
+
+Create a `LEARNINGS.md` file at project setup. Update it during development whenever you discover something surprising or useful:
+
+**What to capture:**
+- Library incompatibilities (e.g. "svelte-dnd-action doesn't work with Svelte 5 $state proxies")
+- Framework quirks (e.g. "PostgreSQL 18 changed the default volume mount path")
+- Workarounds that aren't obvious (e.g. "UNIQUE constraints need temporary negative values during reorder")
+- Performance discoveries
+- Things that looked simple but weren't (e.g. "click vs drag detection needs distance-based approach")
+- Useful patterns that emerged
+
+**Format:** Keep it simple — date, topic, what happened, what the solution was.
+
+```markdown
+## 2026-03-27: svelte-dnd-action + Svelte 5
+svelte-dnd-action has known issues with Svelte 5's $state proxy objects.
+Switched to @thisux/sveltednd which is built for Svelte 5 runes.
+```
+
+**When to review:**
+- During the project debrief — check if learnings should become skill updates
+- Before starting the next version — refresh your memory on gotchas
+- When onboarding someone new to the project
+
 ### Step 5: Commit practices
 
 - Commit messages: `type: description` (feat, fix, refactor, test, docs, chore)
