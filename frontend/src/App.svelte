@@ -6,6 +6,7 @@
   import CreateProjectModal from './lib/CreateProjectModal.svelte';
   import Board from './lib/Board.svelte';
   import TaskDetailPanel from './lib/TaskDetailPanel.svelte';
+  import LabelFilter from './lib/LabelFilter.svelte';
 
   let loading = $state(true);
   let setupRequired = $state(false);
@@ -17,6 +18,7 @@
   let addingTask = $state(false);
   let newTaskTitle = $state('');
   let selectedTask = $state(null);
+  let filterLabelId = $state('');
 
   async function checkStatus() {
     loading = true;
@@ -51,6 +53,7 @@
   }
 
   async function selectProject(project) {
+    filterLabelId = '';
     currentProject = await getProject(project.id);
   }
 
@@ -190,6 +193,11 @@
           {:else}
             <button class="add-task-btn" onclick={startAddTask}>+ Add Task</button>
           {/if}
+          <LabelFilter
+            labels={currentProject.labels}
+            {filterLabelId}
+            onChange={(id) => filterLabelId = id}
+          />
         {/if}
       </div>
       <div class="header-right">
@@ -208,7 +216,7 @@
           </button>
         </div>
       {:else if currentProject}
-        <Board project={currentProject} onTaskClick={handleTaskClick} onTaskMove={handleTaskMove} />
+        <Board project={currentProject} onTaskClick={handleTaskClick} onTaskMove={handleTaskMove} {filterLabelId} />
       {/if}
     </main>
   </div>

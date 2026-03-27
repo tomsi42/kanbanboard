@@ -50,10 +50,17 @@ func HandleCreateTask(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Set default label if none provided
+		var labelID *string
+		if defaultLabel, labelErr := store.GetDefaultLabelForProject(db, projectID); labelErr == nil {
+			labelID = &defaultLabel.ID
+		}
+
 		task := model.Task{
 			ProjectID:   projectID,
 			ColumnID:    req.ColumnID,
 			CreatorID:   user.ID,
+			LabelID:     labelID,
 			Title:       req.Title,
 			Description: "",
 			Priority:    "none",

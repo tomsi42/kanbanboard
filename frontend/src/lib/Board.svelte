@@ -2,14 +2,15 @@
   import { dndzone } from 'svelte-dnd-action';
   import TaskCard from './TaskCard.svelte';
 
-  let { project, onTaskClick, onTaskMove } = $props();
+  let { project, onTaskClick, onTaskMove, filterLabelId = '' } = $props();
 
-  // Build column data with their tasks for dndzone
+  // Build column data with their tasks for dndzone, applying label filter
   let columnData = $derived(
     project.columns.map(col => ({
       ...col,
       tasks: (project.tasks || [])
         .filter(t => t.columnId === col.id)
+        .filter(t => !filterLabelId || t.labelId === filterLabelId)
         .sort((a, b) => a.position - b.position),
     }))
   );

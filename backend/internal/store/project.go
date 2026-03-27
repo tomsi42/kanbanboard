@@ -56,6 +56,7 @@ func CreateDefaultLabels(db *sql.DB, projectID string) error {
 		name  string
 		color string
 	}{
+		{"task", "#4a90d9"},
 		{"bug", "#e53e3e"},
 		{"feature", "#38a169"},
 		{"chore", "#718096"},
@@ -161,4 +162,17 @@ func GetLabelsForProject(db *sql.DB, projectID string) ([]model.Label, error) {
 		labels = append(labels, l)
 	}
 	return labels, rows.Err()
+}
+
+// GetDefaultLabelForProject returns the "task" label for a project.
+func GetDefaultLabelForProject(db *sql.DB, projectID string) (model.Label, error) {
+	var l model.Label
+	err := db.QueryRow(
+		"SELECT id, project_id, name, color FROM labels WHERE project_id = $1 AND name = 'task'",
+		projectID,
+	).Scan(&l.ID, &l.ProjectID, &l.Name, &l.Color)
+	if err != nil {
+		return model.Label{}, fmt.Errorf("get default label: %w", err)
+	}
+	return l, nil
 }
