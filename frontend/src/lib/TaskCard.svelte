@@ -11,6 +11,11 @@
     subtasks.filter(t => t.columnId === doneColumnId).length
   );
   let hasSubtasks = $derived(subtasks.length > 0);
+
+  // Parent task name for subtask indicator
+  let parentName = $derived(
+    task.parentTaskId ? allTasks.find(t => t.id === task.parentTaskId)?.title : null
+  );
 </script>
 
 <div class="card">
@@ -25,8 +30,8 @@
     {/if}
   </div>
   <span class="title">{task.title}</span>
-  {#if task.parentTaskId}
-    <span class="subtask-indicator">↳ subtask</span>
+  {#if parentName}
+    <span class="subtask-indicator">↳ {parentName}</span>
   {/if}
 </div>
 

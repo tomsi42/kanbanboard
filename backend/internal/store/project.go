@@ -281,6 +281,7 @@ func DeleteColumn(db *sql.DB, columnID string) error {
 }
 
 // ReorderColumns sets column positions from an ordered array of IDs.
+// Uses negative temporary positions to avoid UNIQUE constraint violations.
 func ReorderColumns(db *sql.DB, projectID string, columnIDs []string) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -288,6 +289,18 @@ func ReorderColumns(db *sql.DB, projectID string, columnIDs []string) error {
 	}
 	defer tx.Rollback()
 
+	// First pass: set all to negative positions to avoid UNIQUE conflicts
+	for i, id := range columnIDs {
+		_, err := tx.Exec(
+			"UPDATE columns SET position = $1 WHERE id = $2 AND project_id = $3",
+			-(i + 1), id, projectID,
+		)
+		if err != nil {
+			return fmt.Errorf("reorder column (temp): %w", err)
+		}
+	}
+
+	// Second pass: set to final positions
 	for i, id := range columnIDs {
 		_, err := tx.Exec(
 			"UPDATE columns SET position = $1 WHERE id = $2 AND project_id = $3",
@@ -297,6 +310,7 @@ func ReorderColumns(db *sql.DB, projectID string, columnIDs []string) error {
 			return fmt.Errorf("reorder column: %w", err)
 		}
 	}
+
 	return tx.Commit()
 }
 

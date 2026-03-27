@@ -166,6 +166,17 @@ func MoveTask(db *sql.DB, taskID, newColumnID string, position int) error {
 		return fmt.Errorf("move task: %w", err)
 	}
 
+	// If moving between columns, also move subtasks that are in the same source column
+	if oldColumnID != newColumnID {
+		_, err = tx.Exec(
+			"UPDATE tasks SET column_id = $1, updated_at = NOW() WHERE parent_task_id = $2 AND column_id = $3",
+			newColumnID, taskID, oldColumnID,
+		)
+		if err != nil {
+			return fmt.Errorf("move subtasks: %w", err)
+		}
+	}
+
 	// Reorder the target column with the task at the requested position
 	if err := reorderColumn(tx, newColumnID, taskID, position); err != nil {
 		return fmt.Errorf("reorder target column: %w", err)

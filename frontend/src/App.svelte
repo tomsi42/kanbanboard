@@ -97,6 +97,10 @@
     newTaskTitle = '';
   }
 
+  function autofocus(node) {
+    node.focus();
+  }
+
   async function submitAddTask() {
     if (!newTaskTitle.trim() || !currentProject) return;
 
@@ -109,7 +113,6 @@
         columnId: firstColumn.id,
       });
       newTaskTitle = '';
-      addingTask = false;
       await reloadCurrentProject();
     } catch (err) {
       // Keep the input open on error
@@ -210,6 +213,7 @@
                     placeholder="Task title..."
                     bind:value={newTaskTitle}
                     onkeydown={handleAddTaskKeydown}
+                    use:autofocus
                   />
                   <button class="add-confirm" onclick={submitAddTask}>Add</button>
                   <button class="add-cancel" onclick={cancelAddTask}>✕</button>
