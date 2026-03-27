@@ -1,5 +1,5 @@
 <script>
-  import { getSetupStatus, getAppTitle, getMe, logout as apiLogout, listProjects, getProject, createTask } from './lib/api.js';
+  import { getSetupStatus, getAppTitle, getMe, logout as apiLogout, listProjects, getProject, createTask, moveTask } from './lib/api.js';
   import Onboarding from './lib/Onboarding.svelte';
   import Login from './lib/Login.svelte';
   import ProjectDropdown from './lib/ProjectDropdown.svelte';
@@ -141,6 +141,17 @@
     selectedTask = null;
   }
 
+  async function handleTaskMove(taskId, columnId, position) {
+    if (!currentProject) return;
+    try {
+      await moveTask(currentProject.id, taskId, columnId, position);
+      await reloadCurrentProject();
+    } catch (err) {
+      // Reload to revert optimistic update
+      await reloadCurrentProject();
+    }
+  }
+
   $effect(() => {
     checkStatus();
   });
@@ -197,7 +208,7 @@
           </button>
         </div>
       {:else if currentProject}
-        <Board project={currentProject} onTaskClick={handleTaskClick} />
+        <Board project={currentProject} onTaskClick={handleTaskClick} onTaskMove={handleTaskMove} />
       {/if}
     </main>
   </div>

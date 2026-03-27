@@ -113,29 +113,96 @@ func UpdateTask(db *sql.DB, task model.Task) (model.Task, error) {
 	return task, nil
 }
 
-// MoveTask moves a task to a new column, placing it at the end.
-func MoveTask(db *sql.DB, taskID, newColumnID string) error {
-	// Get next position in the target column
-	var maxPos sql.NullInt64
-	err := db.QueryRow(
-		"SELECT MAX(position) FROM tasks WHERE column_id = $1",
-		newColumnID,
-	).Scan(&maxPos)
+// MoveTask moves a task to a column at a specific position.
+// It reassigns positions for all tasks in both source and target columns.
+func MoveTask(db *sql.DB, taskID, newColumnID string, position int) error {
+	tx, err := db.Begin()
 	if err != nil {
-		return fmt.Errorf("get max position: %w", err)
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Get the current column before moving
+	var oldColumnID string
+	err = tx.QueryRow("SELECT column_id FROM tasks WHERE id = $1", taskID).Scan(&oldColumnID)
+	if err != nil {
+		return fmt.Errorf("get current column: %w", err)
 	}
 
-	newPos := 0
-	if maxPos.Valid {
-		newPos = int(maxPos.Int64) + 1
-	}
-
-	_, err = db.Exec(
-		"UPDATE tasks SET column_id = $1, position = $2, updated_at = NOW() WHERE id = $3",
-		newColumnID, newPos, taskID,
+	// Move the task to the new column
+	_, err = tx.Exec(
+		"UPDATE tasks SET column_id = $1, updated_at = NOW() WHERE id = $2",
+		newColumnID, taskID,
 	)
 	if err != nil {
 		return fmt.Errorf("move task: %w", err)
+	}
+
+	// Reorder the target column with the task at the requested position
+	if err := reorderColumn(tx, newColumnID, taskID, position); err != nil {
+		return fmt.Errorf("reorder target column: %w", err)
+	}
+
+	// If the task moved between columns, reorder the source column too
+	if oldColumnID != newColumnID {
+		if err := reorderColumn(tx, oldColumnID, "", -1); err != nil {
+			return fmt.Errorf("reorder source column: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// reorderColumn reassigns sequential positions to all tasks in a column.
+// If insertID is non-empty, that task is placed at insertPos; others fill around it.
+func reorderColumn(tx *sql.Tx, columnID, insertID string, insertPos int) error {
+	rows, err := tx.Query(
+		"SELECT id FROM tasks WHERE column_id = $1 ORDER BY position, created_at",
+		columnID,
+	)
+	if err != nil {
+		return err
+	}
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+
+	// If we need to insert a specific task at a position
+	if insertID != "" {
+		others := make([]string, 0, len(ids))
+		for _, id := range ids {
+			if id != insertID {
+				others = append(others, id)
+			}
+		}
+
+		ordered := make([]string, 0, len(ids))
+		if insertPos >= len(others) {
+			ordered = append(others, insertID)
+		} else if insertPos <= 0 {
+			ordered = append(ordered, insertID)
+			ordered = append(ordered, others...)
+		} else {
+			ordered = append(ordered, others[:insertPos]...)
+			ordered = append(ordered, insertID)
+			ordered = append(ordered, others[insertPos:]...)
+		}
+		ids = ordered
+	}
+
+	for i, id := range ids {
+		_, err := tx.Exec("UPDATE tasks SET position = $1 WHERE id = $2", i, id)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

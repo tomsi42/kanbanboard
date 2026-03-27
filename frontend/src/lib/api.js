@@ -78,6 +78,10 @@ export function updateTask(projectId, taskId, data) {
   return request('PUT', `/projects/${projectId}/tasks/${taskId}`, data);
 }
 
+export function moveTask(projectId, taskId, columnId, position) {
+  return request('PUT', `/projects/${projectId}/tasks/${taskId}/move`, { columnId, position });
+}
+
 export function deleteTask(projectId, taskId) {
   return request('DELETE', `/projects/${projectId}/tasks/${taskId}`);
 }

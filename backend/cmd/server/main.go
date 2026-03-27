@@ -57,6 +57,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/tasks", auth(handler.HandleCreateTask(db)))
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/tasks", auth(handler.HandleListTasks(db)))
 	mux.HandleFunc("PUT /api/v1/projects/{projectId}/tasks/{taskId}", auth(handler.HandleUpdateTask(db)))
+	mux.HandleFunc("PUT /api/v1/projects/{projectId}/tasks/{taskId}/move", auth(handler.HandleMoveTask(db)))
 	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/tasks/{taskId}", auth(handler.HandleDeleteTask(db)))
 
 	// Serve static frontend files

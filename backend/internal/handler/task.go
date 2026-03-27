@@ -157,9 +157,9 @@ func HandleUpdateTask(db *sql.DB) http.HandlerFunc {
 			}
 		}
 
-		// Handle column change (move)
+		// Handle column change (move to end of new column)
 		if req.ColumnID != nil && *req.ColumnID != task.ColumnID {
-			if err := store.MoveTask(db, task.ID, *req.ColumnID); err != nil {
+			if err := store.MoveTask(db, task.ID, *req.ColumnID, 9999); err != nil {
 				writeError(w, http.StatusInternalServerError, "Failed to move task")
 				return
 			}
@@ -169,6 +169,43 @@ func HandleUpdateTask(db *sql.DB) http.HandlerFunc {
 		task, err = store.UpdateTask(db, task)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Failed to update task")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(task)
+	}
+}
+
+type moveTaskRequest struct {
+	ColumnID string `json:"columnId"`
+	Position int    `json:"position"`
+}
+
+// HandleMoveTask moves a task to a new column and/or position.
+func HandleMoveTask(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		taskID := r.PathValue("taskId")
+
+		var req moveTaskRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		if req.ColumnID == "" {
+			writeError(w, http.StatusBadRequest, "Column ID is required")
+			return
+		}
+
+		if err := store.MoveTask(db, taskID, req.ColumnID, req.Position); err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to move task")
+			return
+		}
+
+		task, err := store.GetTask(db, taskID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to get task")
 			return
 		}
 
