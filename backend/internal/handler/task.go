@@ -35,6 +35,10 @@ func HandleCreateTask(db *sql.DB) http.HandlerFunc {
 		user, _ := middleware.UserFromContext(r.Context())
 		projectID := r.PathValue("projectId")
 
+		if _, ok := checkEditPermission(db, w, projectID, user); !ok {
+			return
+		}
+
 		var req createTaskRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -103,7 +107,13 @@ func HandleListTasks(db *sql.DB) http.HandlerFunc {
 // HandleUpdateTask updates a task's fields.
 func HandleUpdateTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := middleware.UserFromContext(r.Context())
+		projectID := r.PathValue("projectId")
 		taskID := r.PathValue("taskId")
+
+		if _, ok := checkEditPermission(db, w, projectID, user); !ok {
+			return
+		}
 
 		// Get existing task
 		task, err := store.GetTask(db, taskID)
@@ -194,7 +204,13 @@ type moveTaskRequest struct {
 // HandleMoveTask moves a task to a new column and/or position.
 func HandleMoveTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := middleware.UserFromContext(r.Context())
+		projectID := r.PathValue("projectId")
 		taskID := r.PathValue("taskId")
+
+		if _, ok := checkEditPermission(db, w, projectID, user); !ok {
+			return
+		}
 
 		var req moveTaskRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -226,7 +242,13 @@ func HandleMoveTask(db *sql.DB) http.HandlerFunc {
 // HandleDeleteTask deletes a task.
 func HandleDeleteTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := middleware.UserFromContext(r.Context())
+		projectID := r.PathValue("projectId")
 		taskID := r.PathValue("taskId")
+
+		if _, ok := checkEditPermission(db, w, projectID, user); !ok {
+			return
+		}
 
 		if err := store.DeleteTask(db, taskID); err != nil {
 			writeError(w, http.StatusInternalServerError, "Failed to delete task")

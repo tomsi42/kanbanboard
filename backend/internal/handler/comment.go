@@ -39,7 +39,12 @@ func HandleListComments(db *sql.DB) http.HandlerFunc {
 func HandleCreateComment(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, _ := middleware.UserFromContext(r.Context())
+		projectID := r.PathValue("projectId")
 		taskID := r.PathValue("taskId")
+
+		if _, ok := checkEditPermission(db, w, projectID, user); !ok {
+			return
+		}
 
 		var req commentRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

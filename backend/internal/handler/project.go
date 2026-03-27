@@ -21,6 +21,7 @@ type projectResponse struct {
 	Columns []model.Column `json:"columns"`
 	Labels  []model.Label  `json:"labels"`
 	Tasks   []model.Task   `json:"tasks"`
+	CanEdit bool           `json:"canEdit"`
 }
 
 // HandleCreateProject creates a new project with default columns and labels.
@@ -81,7 +82,7 @@ func HandleCreateProject(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Return project with columns and labels
-		resp, err := buildProjectResponse(db, project)
+		resp, err := buildProjectResponse(db, project, user)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Failed to load project details")
 			return
@@ -135,7 +136,7 @@ func HandleGetProject(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		resp, err := buildProjectResponse(db, project)
+		resp, err := buildProjectResponse(db, project, user)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Failed to load project details")
 			return
@@ -146,7 +147,7 @@ func HandleGetProject(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func buildProjectResponse(db *sql.DB, project model.Project) (projectResponse, error) {
+func buildProjectResponse(db *sql.DB, project model.Project, user model.User) (projectResponse, error) {
 	columns, err := store.GetColumnsForProject(db, project.ID)
 	if err != nil {
 		return projectResponse{}, err
@@ -176,6 +177,7 @@ func buildProjectResponse(db *sql.DB, project model.Project) (projectResponse, e
 		Columns: columns,
 		Labels:  labels,
 		Tasks:   tasks,
+		CanEdit: canEditProject(db, project, user),
 	}, nil
 }
 
@@ -243,6 +245,21 @@ func canViewProject(db *sql.DB, project model.Project, user model.User) bool {
 	}
 
 	return false
+}
+
+// checkEditPermission loads a project and checks if the user can edit it.
+// Returns the project and true if allowed, or writes an error response and returns false.
+func checkEditPermission(db *sql.DB, w http.ResponseWriter, projectID string, user model.User) (model.Project, bool) {
+	project, err := store.GetProject(db, projectID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Project not found")
+		return model.Project{}, false
+	}
+	if !canEditProject(db, project, user) {
+		writeError(w, http.StatusForbidden, "You don't have permission to edit this project")
+		return model.Project{}, false
+	}
+	return project, true
 }
 
 // canEditProject checks if a user can edit tasks in a project.

@@ -1,7 +1,7 @@
 <script>
   import { updateTask, deleteTask, createTask, listComments, createComment, updateComment as apiUpdateComment, deleteComment as apiDeleteComment, getProjectMembers } from './api.js';
 
-  let { task, project, currentUser, onUpdate, onDelete, onClose, onTaskSelect } = $props();
+  let { task, project, currentUser, canEdit = true, onUpdate, onDelete, onClose, onTaskSelect } = $props();
 
   let title = $state(task.title);
   let description = $state(task.description || '');
@@ -255,13 +255,17 @@
       {/if}
 
       <div class="field">
-        <input
-          class="title-input"
-          type="text"
-          bind:value={title}
-          onblur={handleTitleBlur}
-          placeholder="Task title"
-        />
+        {#if canEdit}
+          <input
+            class="title-input"
+            type="text"
+            bind:value={title}
+            onblur={handleTitleBlur}
+            placeholder="Task title"
+          />
+        {:else}
+          <div class="title-readonly">{task.title}</div>
+        {/if}
       </div>
 
       <div class="field">
@@ -272,13 +276,14 @@
           onblur={handleDescriptionBlur}
           placeholder="Add a description..."
           rows="4"
+          disabled={!canEdit}
         ></textarea>
       </div>
 
       <div class="field-row">
         <div class="field half">
           <label for="column">Column</label>
-          <select id="column" bind:value={columnId} onchange={handleColumnChange}>
+          <select id="column" bind:value={columnId} onchange={handleColumnChange} disabled={!canEdit}>
             {#each project.columns as col}
               <option value={col.id}>{col.name}</option>
             {/each}
@@ -287,7 +292,7 @@
 
         <div class="field half">
           <label for="label">Label</label>
-          <select id="label" bind:value={labelId} onchange={handleLabelChange}>
+          <select id="label" bind:value={labelId} onchange={handleLabelChange} disabled={!canEdit}>
             <option value="">None</option>
             {#each project.labels as lbl}
               <option value={lbl.id}>{lbl.name}</option>
@@ -299,7 +304,7 @@
       {#if projectMembers.length > 1}
         <div class="field">
           <label for="assignee">Assignee</label>
-          <select id="assignee" bind:value={assigneeId} onchange={handleAssigneeChange}>
+          <select id="assignee" bind:value={assigneeId} onchange={handleAssigneeChange} disabled={!canEdit}>
             <option value="">Unassigned</option>
             {#each projectMembers as member}
               <option value={member.id}>{member.name}</option>
@@ -311,7 +316,7 @@
       <div class="field-row">
         <div class="field half">
           <label for="priority">Priority</label>
-          <select id="priority" bind:value={priority} onchange={handlePriorityChange}>
+          <select id="priority" bind:value={priority} onchange={handlePriorityChange} disabled={!canEdit}>
             <option value="none">None</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -321,7 +326,7 @@
 
         <div class="field half">
           <label for="dueDate">Due Date</label>
-          <input id="dueDate" type="date" bind:value={dueDate} onchange={handleDueDateChange} />
+          <input id="dueDate" type="date" bind:value={dueDate} onchange={handleDueDateChange} disabled={!canEdit} />
         </div>
       </div>
 
@@ -333,6 +338,7 @@
           bind:value={targetVersion}
           onblur={handleTargetVersionBlur}
           placeholder="e.g. v1.0"
+          disabled={!canEdit}
         />
       </div>
 
@@ -350,21 +356,23 @@
               {/each}
             </div>
           {/if}
-          {#if addingSubtask}
-            <div class="add-subtask-input">
-              <input
-                type="text"
-                placeholder="Subtask title..."
-                bind:value={newSubtaskTitle}
-                onkeydown={handleSubtaskKeydown}
-              />
-              <button class="add-confirm" onclick={handleAddSubtask}>Add</button>
-              <button class="add-cancel" onclick={() => { addingSubtask = false; newSubtaskTitle = ''; }}>✕</button>
-            </div>
-          {:else}
-            <button class="add-subtask-btn" onclick={() => addingSubtask = true}>
-              + Add subtask
-            </button>
+          {#if canEdit}
+            {#if addingSubtask}
+              <div class="add-subtask-input">
+                <input
+                  type="text"
+                  placeholder="Subtask title..."
+                  bind:value={newSubtaskTitle}
+                  onkeydown={handleSubtaskKeydown}
+                />
+                <button class="add-confirm" onclick={handleAddSubtask}>Add</button>
+                <button class="add-cancel" onclick={() => { addingSubtask = false; newSubtaskTitle = ''; }}>✕</button>
+              </div>
+            {:else}
+              <button class="add-subtask-btn" onclick={() => addingSubtask = true}>
+                + Add subtask
+              </button>
+            {/if}
           {/if}
         </div>
       {/if}
@@ -401,26 +409,30 @@
             {/each}
           </div>
         {/if}
-        <div class="add-comment">
-          <textarea
-            placeholder="Add a comment..."
-            bind:value={newCommentText}
-            onkeydown={handleCommentKeydown}
-            rows="2"
-          ></textarea>
-          <button class="add-comment-btn" onclick={handleAddComment} disabled={!newCommentText.trim()}>
-            Comment
-          </button>
-        </div>
+        {#if canEdit}
+          <div class="add-comment">
+            <textarea
+              placeholder="Add a comment..."
+              bind:value={newCommentText}
+              onkeydown={handleCommentKeydown}
+              rows="2"
+            ></textarea>
+            <button class="add-comment-btn" onclick={handleAddComment} disabled={!newCommentText.trim()}>
+              Comment
+            </button>
+          </div>
+        {/if}
       </div>
 
       <div class="meta">
         <span>Created: {new Date(task.createdAt).toLocaleDateString()}</span>
       </div>
 
-      <div class="danger-zone">
-        <button class="delete-btn" onclick={handleDelete}>Delete Task</button>
-      </div>
+      {#if canEdit}
+        <div class="danger-zone">
+          <button class="delete-btn" onclick={handleDelete}>Delete Task</button>
+        </div>
+      {/if}
     </div>
   </div>
 
@@ -524,6 +536,13 @@
     color: #666;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  .title-readonly {
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 6px 8px;
+    color: #333;
   }
 
   .title-input {

@@ -198,23 +198,27 @@
             onSelect={selectProject}
             onCreateNew={() => showCreateProject = true}
           />
-          {#if currentProject}
+          {#if currentProject?.canEdit}
             <button class="gear-btn" onclick={() => currentView = 'settings'} title="Project Settings">⚙</button>
           {/if}
           {#if currentProject && currentView === 'board'}
-            {#if addingTask}
-              <div class="add-task-inline">
-                <input
-                  type="text"
-                  placeholder="Task title..."
-                  bind:value={newTaskTitle}
-                  onkeydown={handleAddTaskKeydown}
-                />
-                <button class="add-confirm" onclick={submitAddTask}>Add</button>
-                <button class="add-cancel" onclick={cancelAddTask}>✕</button>
-              </div>
+            {#if currentProject.canEdit}
+              {#if addingTask}
+                <div class="add-task-inline">
+                  <input
+                    type="text"
+                    placeholder="Task title..."
+                    bind:value={newTaskTitle}
+                    onkeydown={handleAddTaskKeydown}
+                  />
+                  <button class="add-confirm" onclick={submitAddTask}>Add</button>
+                  <button class="add-cancel" onclick={cancelAddTask}>✕</button>
+                </div>
+              {:else}
+                <button class="add-task-btn" onclick={startAddTask}>+ Add Task</button>
+              {/if}
             {:else}
-              <button class="add-task-btn" onclick={startAddTask}>+ Add Task</button>
+              <span class="readonly-badge">Read-only</span>
             {/if}
             <LabelFilter
               labels={currentProject.labels}
@@ -265,7 +269,7 @@
           </button>
         </div>
       {:else if currentProject}
-        <Board project={currentProject} onTaskClick={handleTaskClick} onTaskMove={handleTaskMove} {filterLabelId} />
+        <Board project={currentProject} onTaskClick={handleTaskClick} onTaskMove={handleTaskMove} {filterLabelId} canEdit={currentProject.canEdit} />
       {/if}
     </main>
   </div>
@@ -282,6 +286,7 @@
       task={selectedTask}
       project={currentProject}
       {currentUser}
+      canEdit={currentProject.canEdit}
       onUpdate={handleTaskUpdate}
       onDelete={handleTaskDelete}
       onClose={closeTaskPanel}
@@ -364,6 +369,16 @@
     font-weight: 600;
     font-size: 1rem;
     color: #333;
+  }
+
+  .readonly-badge {
+    padding: 3px 10px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: #888;
+    font-weight: 500;
   }
 
   .gear-btn {

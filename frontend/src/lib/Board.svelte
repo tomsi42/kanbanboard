@@ -2,7 +2,7 @@
   import { draggable, droppable } from '@thisux/sveltednd';
   import TaskCard from './TaskCard.svelte';
 
-  let { project, onTaskClick, onTaskMove, filterLabelId = '' } = $props();
+  let { project, onTaskClick, onTaskMove, filterLabelId = '', canEdit = true } = $props();
 
   // The last column is treated as "Done"
   let doneColumnId = $derived(
@@ -72,25 +72,36 @@
         <span class="column-name">{column.name}</span>
         <span class="column-count">{columnTasks.length}</span>
       </div>
-      <div
-        class="column-body"
-        use:droppable={{ container: column.id, callbacks: { onDrop: handleDrop } }}
-      >
-        {#each columnTasks as task (task.id)}
-          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <div
-            class="card-wrapper"
-            use:draggable={{ container: column.id, dragData: task }}
-            onpointerdown={handlePointerDown}
-            onclick={(e) => handleCardClick(task, e)}
-          >
-            <TaskCard {task} labels={project.labels} allTasks={project.tasks || []} {doneColumnId} />
-          </div>
-        {/each}
-        {#if columnTasks.length === 0}
-          <div class="empty-zone"></div>
-        {/if}
-      </div>
+      {#if canEdit}
+        <div
+          class="column-body"
+          use:droppable={{ container: column.id, callbacks: { onDrop: handleDrop } }}
+        >
+          {#each columnTasks as task (task.id)}
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <div
+              class="card-wrapper"
+              use:draggable={{ container: column.id, dragData: task }}
+              onpointerdown={handlePointerDown}
+              onclick={(e) => handleCardClick(task, e)}
+            >
+              <TaskCard {task} labels={project.labels} allTasks={project.tasks || []} {doneColumnId} />
+            </div>
+          {/each}
+          {#if columnTasks.length === 0}
+            <div class="empty-zone"></div>
+          {/if}
+        </div>
+      {:else}
+        <div class="column-body">
+          {#each columnTasks as task (task.id)}
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <div class="card-wrapper" onclick={() => onTaskClick?.(task)}>
+              <TaskCard {task} labels={project.labels} allTasks={project.tasks || []} {doneColumnId} />
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   {/each}
 </div>
