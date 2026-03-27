@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"kanbanboard/internal/model"
 	"kanbanboard/internal/store"
@@ -98,6 +99,26 @@ func HandleSetup(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "Failed to save application title")
 			return
 		}
+
+		// Auto-login: create session and set cookie
+		token, err := store.CreateSession(db, user.ID, 7*24*time.Hour)
+		if err != nil {
+			// User was created but session failed — still return success,
+			// they can log in manually
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(user)
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "session_token",
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int((7 * 24 * time.Hour).Seconds()),
+		})
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
