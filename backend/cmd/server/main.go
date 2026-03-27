@@ -1,12 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"kanbanboard/internal/store"
 )
 
 func main() {
@@ -15,10 +18,28 @@ func main() {
 		port = "8080"
 	}
 
+	// Connect to database
+	db, err := store.Connect()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+	log.Println("Connected to database")
+
+	// Run migrations
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" {
+		migrationsDir = "migrations"
+	}
+	if err := store.RunMigrations(db, migrationsDir); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+	log.Println("Migrations complete")
+
 	mux := http.NewServeMux()
 
 	// API routes
-	mux.HandleFunc("GET /api/v1/health", handleHealth)
+	mux.HandleFunc("GET /api/v1/health", handleHealth(db))
 
 	// Serve static frontend files
 	staticDir := os.Getenv("STATIC_DIR")
@@ -49,7 +70,17 @@ func main() {
 	}
 }
 
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+func handleHealth(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		dbStatus := "ok"
+		if err := db.Ping(); err != nil {
+			dbStatus = "error"
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":   "ok",
+			"database": dbStatus,
+		})
+	}
 }

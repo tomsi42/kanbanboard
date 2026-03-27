@@ -9,7 +9,7 @@ RUN npm run build
 # Stage 2: Build backend
 FROM golang:1.26-alpine AS backend-build
 WORKDIR /app/backend
-COPY backend/go.mod ./
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
 RUN CGO_ENABLED=0 go build -o /app/server ./cmd/server
@@ -19,6 +19,8 @@ FROM alpine:3.21
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=backend-build /app/server .
+COPY --from=backend-build /app/backend/migrations ./migrations
 COPY --from=frontend-build /app/frontend/dist ./static
+ENV MIGRATIONS_DIR=/app/migrations
 EXPOSE 8080
 CMD ["./server"]
