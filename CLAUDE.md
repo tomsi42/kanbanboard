@@ -23,13 +23,13 @@ cd backend && go test ./...
 ## Project Structure
 
 - `backend/cmd/server/` - Go entry point
-- `backend/internal/auth/` - Authentication and sessions
+- `backend/internal/handler/` - REST API handlers
+- `backend/internal/middleware/` - Auth middleware (RequireAuth, RequireAdmin)
 - `backend/internal/model/` - Domain entities
 - `backend/internal/store/` - Database access (PostgreSQL, plain SQL)
-- `backend/internal/handler/` - REST API handlers
-- `backend/internal/middleware/` - HTTP middleware
+- `backend/internal/validate/` - Input validation (password policy)
 - `backend/migrations/` - SQL migration files
-- `frontend/src/` - Svelte application
+- `frontend/src/lib/` - Svelte components
 
 ## Key Decisions
 
