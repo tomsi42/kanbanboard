@@ -191,35 +191,39 @@
   <div class="app">
     <header>
       <div class="header-left">
-        <ProjectDropdown
-          {projects}
-          {currentProject}
-          onSelect={selectProject}
-          onCreateNew={() => showCreateProject = true}
-        />
-        {#if currentProject}
-          <button class="gear-btn" onclick={() => currentView = 'settings'} title="Project Settings">⚙</button>
-        {/if}
-        {#if currentProject}
-          {#if addingTask}
-            <div class="add-task-inline">
-              <input
-                type="text"
-                placeholder="Task title..."
-                bind:value={newTaskTitle}
-                onkeydown={handleAddTaskKeydown}
-              />
-              <button class="add-confirm" onclick={submitAddTask}>Add</button>
-              <button class="add-cancel" onclick={cancelAddTask}>✕</button>
-            </div>
-          {:else}
-            <button class="add-task-btn" onclick={startAddTask}>+ Add Task</button>
-          {/if}
-          <LabelFilter
-            labels={currentProject.labels}
-            {filterLabelId}
-            onChange={(id) => filterLabelId = id}
+        {#if currentView === 'board' || currentView === 'settings'}
+          <ProjectDropdown
+            {projects}
+            {currentProject}
+            onSelect={selectProject}
+            onCreateNew={() => showCreateProject = true}
           />
+          {#if currentProject}
+            <button class="gear-btn" onclick={() => currentView = 'settings'} title="Project Settings">⚙</button>
+          {/if}
+          {#if currentProject && currentView === 'board'}
+            {#if addingTask}
+              <div class="add-task-inline">
+                <input
+                  type="text"
+                  placeholder="Task title..."
+                  bind:value={newTaskTitle}
+                  onkeydown={handleAddTaskKeydown}
+                />
+                <button class="add-confirm" onclick={submitAddTask}>Add</button>
+                <button class="add-cancel" onclick={cancelAddTask}>✕</button>
+              </div>
+            {:else}
+              <button class="add-task-btn" onclick={startAddTask}>+ Add Task</button>
+            {/if}
+            <LabelFilter
+              labels={currentProject.labels}
+              {filterLabelId}
+              onChange={(id) => filterLabelId = id}
+            />
+          {/if}
+        {:else}
+          <span class="header-title">{appTitle}</span>
         {/if}
       </div>
       <div class="header-right">
@@ -354,6 +358,12 @@
 
   .create-btn:hover {
     background: #357abd;
+  }
+
+  .header-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #333;
   }
 
   .gear-btn {
