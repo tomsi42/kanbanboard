@@ -82,6 +82,7 @@
     currentUser = null;
     projects = [];
     currentProject = null;
+    currentView = 'board';
   }
 
   async function handleProjectCreated(project) {
