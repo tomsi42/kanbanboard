@@ -25,21 +25,20 @@
     return subtasks.some(t => t.columnId !== doneColumnId);
   }
 
-  // Track drag state to distinguish clicks from drags
-  let isDragging = $state(false);
-  let dragStartTime = $state(0);
+  // Track pointer start position to distinguish clicks from drags
+  let dragStartX = $state(0);
+  let dragStartY = $state(0);
 
-  function handleDragStart() {
-    isDragging = false;
-    dragStartTime = Date.now();
+  function handlePointerDown(e) {
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
   }
 
-  function handleDragMove() {
-    isDragging = true;
-  }
-
-  function handleCardClick(task) {
-    if (!isDragging && Date.now() - dragStartTime < 200) {
+  function handleCardClick(task, e) {
+    // Only fire click if the pointer didn't move more than 5px (not a drag)
+    const dx = Math.abs(e.clientX - dragStartX);
+    const dy = Math.abs(e.clientY - dragStartY);
+    if (dx < 5 && dy < 5) {
       onTaskClick?.(task);
     }
   }
@@ -82,9 +81,8 @@
           <div
             class="card-wrapper"
             use:draggable={{ container: column.id, dragData: task }}
-            onpointerdown={handleDragStart}
-            onpointermove={handleDragMove}
-            onclick={() => handleCardClick(task)}
+            onpointerdown={handlePointerDown}
+            onclick={(e) => handleCardClick(task, e)}
           >
             <TaskCard {task} labels={project.labels} allTasks={project.tasks || []} {doneColumnId} />
           </div>
