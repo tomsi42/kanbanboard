@@ -1,9 +1,10 @@
 <script>
-  import { getSetupStatus, getAppTitle, getMe, logout as apiLogout, listProjects, getProject } from './lib/api.js';
+  import { getSetupStatus, getAppTitle, getMe, logout as apiLogout, listProjects, getProject, createTask } from './lib/api.js';
   import Onboarding from './lib/Onboarding.svelte';
   import Login from './lib/Login.svelte';
   import ProjectDropdown from './lib/ProjectDropdown.svelte';
   import CreateProjectModal from './lib/CreateProjectModal.svelte';
+  import Board from './lib/Board.svelte';
 
   let loading = $state(true);
   let setupRequired = $state(false);
@@ -12,6 +13,8 @@
   let projects = $state([]);
   let currentProject = $state(null);
   let showCreateProject = $state(false);
+  let addingTask = $state(false);
+  let newTaskTitle = $state('');
 
   async function checkStatus() {
     loading = true;
@@ -49,6 +52,12 @@
     currentProject = await getProject(project.id);
   }
 
+  async function reloadCurrentProject() {
+    if (currentProject) {
+      currentProject = await getProject(currentProject.id);
+    }
+  }
+
   function handleSetupComplete() {
     checkStatus();
   }
@@ -69,6 +78,47 @@
     showCreateProject = false;
     projects = [...projects, project];
     currentProject = project;
+  }
+
+  function startAddTask() {
+    addingTask = true;
+    newTaskTitle = '';
+  }
+
+  async function submitAddTask() {
+    if (!newTaskTitle.trim() || !currentProject) return;
+
+    const firstColumn = currentProject.columns[0];
+    if (!firstColumn) return;
+
+    try {
+      await createTask(currentProject.id, {
+        title: newTaskTitle.trim(),
+        columnId: firstColumn.id,
+      });
+      newTaskTitle = '';
+      addingTask = false;
+      await reloadCurrentProject();
+    } catch (err) {
+      // Keep the input open on error
+    }
+  }
+
+  function cancelAddTask() {
+    addingTask = false;
+    newTaskTitle = '';
+  }
+
+  function handleAddTaskKeydown(e) {
+    if (e.key === 'Enter') {
+      submitAddTask();
+    } else if (e.key === 'Escape') {
+      cancelAddTask();
+    }
+  }
+
+  function handleTaskClick(task) {
+    // Task detail panel comes in Phase 2.3
   }
 
   $effect(() => {
@@ -94,6 +144,22 @@
           onSelect={selectProject}
           onCreateNew={() => showCreateProject = true}
         />
+        {#if currentProject}
+          {#if addingTask}
+            <div class="add-task-inline">
+              <input
+                type="text"
+                placeholder="Task title..."
+                bind:value={newTaskTitle}
+                onkeydown={handleAddTaskKeydown}
+              />
+              <button class="add-confirm" onclick={submitAddTask}>Add</button>
+              <button class="add-cancel" onclick={cancelAddTask}>✕</button>
+            </div>
+          {:else}
+            <button class="add-task-btn" onclick={startAddTask}>+ Add Task</button>
+          {/if}
+        {/if}
       </div>
       <div class="header-right">
         <span class="user-name">{currentUser.name}</span>
@@ -111,16 +177,7 @@
           </button>
         </div>
       {:else if currentProject}
-        <div class="board">
-          {#each currentProject.columns as column}
-            <div class="column">
-              <div class="column-header">{column.name}</div>
-              <div class="column-body">
-                <p class="placeholder">Tasks coming in Phase 2.2</p>
-              </div>
-            </div>
-          {/each}
-        </div>
+        <Board project={currentProject} onTaskClick={handleTaskClick} />
       {/if}
     </main>
   </div>
@@ -222,38 +279,57 @@
     background: #357abd;
   }
 
-  .board {
-    display: flex;
-    gap: 12px;
-    padding: 16px;
-    min-height: calc(100vh - 50px);
-  }
-
-  .column {
-    flex: 0 0 260px;
-    background: #e8e8e8;
-    border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .column-header {
-    padding: 10px 12px;
-    font-weight: 600;
+  .add-task-btn {
+    padding: 6px 12px;
+    background: #4a90d9;
+    color: white;
+    border: none;
+    border-radius: 4px;
     font-size: 0.875rem;
-    color: #333;
+    cursor: pointer;
   }
 
-  .column-body {
-    padding: 8px;
-    flex: 1;
+  .add-task-btn:hover {
+    background: #357abd;
   }
 
-  .placeholder {
-    color: #999;
-    font-size: 0.8rem;
-    text-align: center;
-    padding: 16px 0;
+  .add-task-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .add-task-inline input {
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    width: 200px;
+  }
+
+  .add-task-inline input:focus {
+    outline: none;
+    border-color: #4a90d9;
+  }
+
+  .add-confirm {
+    padding: 5px 10px;
+    background: #4a90d9;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .add-cancel {
+    padding: 5px 8px;
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    color: #888;
   }
 
   p {

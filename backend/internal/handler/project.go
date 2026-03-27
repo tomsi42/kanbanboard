@@ -19,6 +19,7 @@ type projectResponse struct {
 	model.Project
 	Columns []model.Column `json:"columns"`
 	Labels  []model.Label  `json:"labels"`
+	Tasks   []model.Task   `json:"tasks"`
 }
 
 // HandleCreateProject creates a new project with default columns and labels.
@@ -142,10 +143,19 @@ func buildProjectResponse(db *sql.DB, project model.Project) (projectResponse, e
 		labels = []model.Label{}
 	}
 
+	tasks, err := store.ListTasksForProject(db, project.ID)
+	if err != nil {
+		return projectResponse{}, err
+	}
+	if tasks == nil {
+		tasks = []model.Task{}
+	}
+
 	return projectResponse{
 		Project: project,
 		Columns: columns,
 		Labels:  labels,
+		Tasks:   tasks,
 	}, nil
 }
 

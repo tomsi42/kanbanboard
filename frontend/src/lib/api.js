@@ -60,3 +60,11 @@ export function getProject(id) {
 export function createProject(name) {
   return request('POST', '/projects', { name });
 }
+
+export function listTasks(projectId) {
+  return request('GET', `/projects/${projectId}/tasks`);
+}
+
+export function createTask(projectId, data) {
+  return request('POST', `/projects/${projectId}/tasks`, data);
+}

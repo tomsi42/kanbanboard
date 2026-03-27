@@ -54,6 +54,8 @@ func main() {
 	mux.HandleFunc("POST /api/v1/projects", auth(handler.HandleCreateProject(db)))
 	mux.HandleFunc("GET /api/v1/projects", auth(handler.HandleListProjects(db)))
 	mux.HandleFunc("GET /api/v1/projects/{id}", auth(handler.HandleGetProject(db)))
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/tasks", auth(handler.HandleCreateTask(db)))
+	mux.HandleFunc("GET /api/v1/projects/{projectId}/tasks", auth(handler.HandleListTasks(db)))
 
 	// Serve static frontend files
 	staticDir := os.Getenv("STATIC_DIR")
