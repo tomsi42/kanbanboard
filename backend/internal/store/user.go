@@ -67,6 +67,41 @@ func GetUserByID(db *sql.DB, id string) (model.User, error) {
 	return u, nil
 }
 
+// ListUsers returns all users.
+func ListUsers(db *sql.DB) ([]model.User, error) {
+	rows, err := db.Query(`
+		SELECT id, name, email, password_hash, is_admin, is_team_manager, is_active, created_at, updated_at
+		FROM users ORDER BY name
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []model.User
+	for rows.Next() {
+		var u model.User
+		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.IsAdmin, &u.IsTeamManager, &u.IsActive, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+// UpdateUserAdmin updates a user's name, email, active status, and roles (admin operation).
+func UpdateUserAdmin(db *sql.DB, user model.User) (model.User, error) {
+	err := db.QueryRow(`
+		UPDATE users SET name = $1, email = $2, is_active = $3, is_admin = $4, is_team_manager = $5, updated_at = NOW()
+		WHERE id = $6
+		RETURNING updated_at
+	`, user.Name, user.Email, user.IsActive, user.IsAdmin, user.IsTeamManager, user.ID).Scan(&user.UpdatedAt)
+	if err != nil {
+		return model.User{}, fmt.Errorf("update user admin: %w", err)
+	}
+	return user, nil
+}
+
 // UpdateUser updates a user's name and email.
 func UpdateUser(db *sql.DB, user model.User) (model.User, error) {
 	err := db.QueryRow(`

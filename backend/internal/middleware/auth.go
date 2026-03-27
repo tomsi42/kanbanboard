@@ -42,6 +42,20 @@ func RequireAuth(db *sql.DB, next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// RequireAdmin wraps RequireAuth and additionally checks that the user is an admin.
+func RequireAdmin(db *sql.DB, next http.HandlerFunc) http.HandlerFunc {
+	return RequireAuth(db, func(w http.ResponseWriter, r *http.Request) {
+		user, _ := UserFromContext(r.Context())
+		if !user.IsAdmin {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Admin access required"})
+			return
+		}
+		next(w, r)
+	})
+}
+
 // UserFromContext retrieves the authenticated user from the request context.
 func UserFromContext(ctx context.Context) (model.User, bool) {
 	user, ok := ctx.Value(userContextKey).(model.User)

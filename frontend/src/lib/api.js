@@ -118,6 +118,22 @@ export function updateProfile(data) {
   return request('PUT', '/users/me', data);
 }
 
+export function adminListUsers() {
+  return request('GET', '/admin/users');
+}
+
+export function adminCreateUser(data) {
+  return request('POST', '/admin/users', data);
+}
+
+export function adminUpdateUser(userId, data) {
+  return request('PUT', `/admin/users/${userId}`, data);
+}
+
+export function adminResetPassword(userId, password) {
+  return request('PUT', `/admin/users/${userId}/password`, { password });
+}
+
 export function changePassword(data) {
   return request('PUT', '/users/me/password', data);
 }

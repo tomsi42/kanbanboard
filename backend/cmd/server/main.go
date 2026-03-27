@@ -52,6 +52,13 @@ func main() {
 	// Auth middleware helper
 	auth := func(h http.HandlerFunc) http.HandlerFunc { return middleware.RequireAuth(db, h) }
 
+	// Admin routes (admin only)
+	admin := func(h http.HandlerFunc) http.HandlerFunc { return middleware.RequireAdmin(db, h) }
+	mux.HandleFunc("GET /api/v1/admin/users", admin(handler.HandleListUsers(db)))
+	mux.HandleFunc("POST /api/v1/admin/users", admin(handler.HandleCreateUser(db)))
+	mux.HandleFunc("PUT /api/v1/admin/users/{userId}", admin(handler.HandleUpdateUserAdmin(db)))
+	mux.HandleFunc("PUT /api/v1/admin/users/{userId}/password", admin(handler.HandleResetPassword(db)))
+
 	// User routes (auth required)
 	mux.HandleFunc("PUT /api/v1/users/me", auth(handler.HandleUpdateProfile(db)))
 	mux.HandleFunc("PUT /api/v1/users/me/password", auth(handler.HandleChangePassword(db)))

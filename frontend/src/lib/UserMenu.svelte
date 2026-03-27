@@ -1,5 +1,5 @@
 <script>
-  let { userName, onProfile, onLogout } = $props();
+  let { userName, isAdmin = false, onProfile, onAdmin, onLogout } = $props();
 
   let open = $state(false);
 
@@ -36,6 +36,9 @@
   {#if open}
     <div class="menu">
       <button class="menu-item" onclick={handleProfile}>My Profile</button>
+      {#if isAdmin}
+        <button class="menu-item" onclick={() => { open = false; onAdmin(); }}>Admin</button>
+      {/if}
       <hr />
       <button class="menu-item logout" onclick={handleLogout}>Sign Out</button>
     </div>
