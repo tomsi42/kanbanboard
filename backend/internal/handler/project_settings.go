@@ -45,7 +45,7 @@ func HandleUpdateProject(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		if !isProjectOwner(project, user) {
+		if !isProjectOwner(db, project, user) {
 			writeError(w, http.StatusForbidden, "Only the project owner can edit settings")
 			return
 		}
@@ -267,6 +267,17 @@ func HandleDeleteLabel(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func isProjectOwner(project model.Project, user model.User) bool {
-	return project.OwnerUserID != nil && *project.OwnerUserID == user.ID
+func isProjectOwner(db *sql.DB, project model.Project, user model.User) bool {
+	// User owner
+	if project.OwnerUserID != nil && *project.OwnerUserID == user.ID {
+		return true
+	}
+	// Team owner
+	if project.OwnerTeamID != nil {
+		team, err := store.GetTeam(db, *project.OwnerTeamID)
+		if err == nil && team.OwnerID == user.ID {
+			return true
+		}
+	}
+	return false
 }

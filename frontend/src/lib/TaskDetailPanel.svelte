@@ -1,5 +1,5 @@
 <script>
-  import { updateTask, deleteTask, createTask, listComments, createComment, updateComment as apiUpdateComment, deleteComment as apiDeleteComment } from './api.js';
+  import { updateTask, deleteTask, createTask, listComments, createComment, updateComment as apiUpdateComment, deleteComment as apiDeleteComment, getProjectMembers } from './api.js';
 
   let { task, project, currentUser, onUpdate, onDelete, onClose, onTaskSelect } = $props();
 
@@ -13,6 +13,9 @@
   let saving = $state(false);
   let newSubtaskTitle = $state('');
   let addingSubtask = $state(false);
+
+  // Project members for assignee
+  let projectMembers = $state([]);
 
   // Comments
   let comments = $state([]);
@@ -34,6 +37,7 @@
     newCommentText = '';
     editingCommentId = null;
     loadComments();
+    loadMembers();
   });
 
   // The last column is treated as "Done"
@@ -138,6 +142,25 @@
   function handleSubtaskKeydown(e) {
     if (e.key === 'Enter') handleAddSubtask();
     if (e.key === 'Escape') { addingSubtask = false; newSubtaskTitle = ''; }
+  }
+
+  async function loadMembers() {
+    try {
+      projectMembers = await getProjectMembers(project.id);
+    } catch {
+      projectMembers = [];
+    }
+  }
+
+  let assigneeId = $state(task.assigneeId || '');
+
+  // Sync assigneeId when task changes
+  $effect(() => {
+    assigneeId = task.assigneeId || '';
+  });
+
+  function handleAssigneeChange() {
+    save('assigneeId', assigneeId);
   }
 
   // Comment handlers
@@ -272,6 +295,18 @@
           </select>
         </div>
       </div>
+
+      {#if projectMembers.length > 1}
+        <div class="field">
+          <label for="assignee">Assignee</label>
+          <select id="assignee" bind:value={assigneeId} onchange={handleAssigneeChange}>
+            <option value="">Unassigned</option>
+            {#each projectMembers as member}
+              <option value={member.id}>{member.name}</option>
+            {/each}
+          </select>
+        </div>
+      {/if}
 
       <div class="field-row">
         <div class="field half">

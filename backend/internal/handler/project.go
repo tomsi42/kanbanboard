@@ -12,7 +12,8 @@ import (
 )
 
 type createProjectRequest struct {
-	Name string `json:"name"`
+	Name   string  `json:"name"`
+	TeamID *string `json:"teamId"`
 }
 
 type projectResponse struct {
@@ -38,10 +39,29 @@ func HandleCreateProject(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		project := model.Project{
-			Name:        req.Name,
-			Visibility:  "public",
-			OwnerUserID: &user.ID,
+		var project model.Project
+		if req.TeamID != nil && *req.TeamID != "" {
+			// Team-owned project — verify user owns the team
+			team, err := store.GetTeam(db, *req.TeamID)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "Team not found")
+				return
+			}
+			if team.OwnerID != user.ID {
+				writeError(w, http.StatusForbidden, "You must own the team to create a project for it")
+				return
+			}
+			project = model.Project{
+				Name:        req.Name,
+				Visibility:  "public",
+				OwnerTeamID: req.TeamID,
+			}
+		} else {
+			project = model.Project{
+				Name:        req.Name,
+				Visibility:  "public",
+				OwnerUserID: &user.ID,
+			}
 		}
 
 		project, err := store.CreateProject(db, project)
@@ -159,8 +179,50 @@ func buildProjectResponse(db *sql.DB, project model.Project) (projectResponse, e
 	}, nil
 }
 
+// HandleGetProjectMembers returns the members who can work on a project.
+func HandleGetProjectMembers(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := middleware.UserFromContext(r.Context())
+		projectID := r.PathValue("id")
+
+		project, err := store.GetProject(db, projectID)
+		if errors.Is(err, store.ErrProjectNotFound) {
+			writeError(w, http.StatusNotFound, "Project not found")
+			return
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to get project")
+			return
+		}
+
+		if !canViewProject(db, project, user) {
+			writeError(w, http.StatusNotFound, "Project not found")
+			return
+		}
+
+		members, err := store.GetProjectMembers(db, project)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to get project members")
+			return
+		}
+
+		// Return basic info only
+		type basicMember struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		result := make([]basicMember, len(members))
+		for i, m := range members {
+			result[i] = basicMember{ID: m.ID, Name: m.Name}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	}
+}
+
 func canViewProject(db *sql.DB, project model.Project, user model.User) bool {
-	// Owner can always view
+	// User owner can always view
 	if project.OwnerUserID != nil && *project.OwnerUserID == user.ID {
 		return true
 	}
@@ -170,8 +232,32 @@ func canViewProject(db *sql.DB, project model.Project, user model.User) bool {
 		return true
 	}
 
-	// Team member can view team projects
+	// Team owner or member can view team projects
 	if project.OwnerTeamID != nil {
+		team, err := store.GetTeam(db, *project.OwnerTeamID)
+		if err == nil && team.OwnerID == user.ID {
+			return true
+		}
+		isMember, _ := store.IsTeamMember(db, *project.OwnerTeamID, user.ID)
+		return isMember
+	}
+
+	return false
+}
+
+// canEditProject checks if a user can edit tasks in a project.
+func canEditProject(db *sql.DB, project model.Project, user model.User) bool {
+	// User owner can edit
+	if project.OwnerUserID != nil && *project.OwnerUserID == user.ID {
+		return true
+	}
+
+	// Team owner or member can edit team projects
+	if project.OwnerTeamID != nil {
+		team, err := store.GetTeam(db, *project.OwnerTeamID)
+		if err == nil && team.OwnerID == user.ID {
+			return true
+		}
 		isMember, _ := store.IsTeamMember(db, *project.OwnerTeamID, user.ID)
 		return isMember
 	}

@@ -1,11 +1,23 @@
 <script>
-  import { createProject } from './api.js';
+  import { createProject, listTeams } from './api.js';
 
   let { onCreated, onCancel } = $props();
 
   let name = $state('');
+  let ownerType = $state('personal'); // 'personal' or team ID
+  let teams = $state([]);
   let error = $state('');
   let submitting = $state(false);
+
+  async function loadTeams() {
+    try {
+      teams = await listTeams();
+    } catch {
+      teams = [];
+    }
+  }
+
+  $effect(() => { loadTeams(); });
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -18,7 +30,8 @@
 
     submitting = true;
     try {
-      const project = await createProject(name.trim());
+      const teamId = ownerType !== 'personal' ? ownerType : null;
+      const project = await createProject(name.trim(), teamId);
       onCreated(project);
     } catch (err) {
       error = err.message;
@@ -44,6 +57,16 @@
           placeholder="My Project"
           required
         />
+      </div>
+
+      <div class="field">
+        <label for="owner">Owner</label>
+        <select id="owner" bind:value={ownerType}>
+          <option value="personal">Personal</option>
+          {#each teams as team}
+            <option value={team.id}>{team.name} (team)</option>
+          {/each}
+        </select>
       </div>
 
       {#if error}
@@ -98,7 +121,7 @@
     margin-bottom: 4px;
   }
 
-  input {
+  input, select {
     width: 100%;
     padding: 8px 12px;
     border: 1px solid #ccc;
@@ -107,7 +130,7 @@
     box-sizing: border-box;
   }
 
-  input:focus {
+  input:focus, select:focus {
     outline: none;
     border-color: #4a90d9;
     box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);

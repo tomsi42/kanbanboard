@@ -83,8 +83,10 @@ func ListProjectsForUser(db *sql.DB, userID string) ([]model.Project, error) {
 		SELECT DISTINCT p.id, p.name, p.visibility, p.owner_user_id, p.owner_team_id, p.created_at, p.updated_at
 		FROM projects p
 		LEFT JOIN team_members tm ON p.owner_team_id = tm.team_id
+		LEFT JOIN teams t ON p.owner_team_id = t.id
 		WHERE p.owner_user_id = $1
 		   OR tm.user_id = $1
+		   OR t.owner_id = $1
 		   OR p.visibility = 'public'
 		ORDER BY p.created_at DESC
 	`, userID)
@@ -175,6 +177,51 @@ func GetDefaultLabelForProject(db *sql.DB, projectID string) (model.Label, error
 		return model.Label{}, fmt.Errorf("get default label: %w", err)
 	}
 	return l, nil
+}
+
+// GetProjectMembers returns users who can work on a project.
+// For user-owned projects: just the owner.
+// For team-owned projects: team owner + all team members.
+func GetProjectMembers(db *sql.DB, project model.Project) ([]model.User, error) {
+	if project.OwnerUserID != nil {
+		user, err := GetUserByID(db, *project.OwnerUserID)
+		if err != nil {
+			return nil, err
+		}
+		return []model.User{user}, nil
+	}
+
+	if project.OwnerTeamID != nil {
+		// Get team owner + members
+		team, err := GetTeam(db, *project.OwnerTeamID)
+		if err != nil {
+			return nil, err
+		}
+
+		members, err := ListTeamMembers(db, *project.OwnerTeamID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Add team owner if not already a member
+		ownerIncluded := false
+		for _, m := range members {
+			if m.ID == team.OwnerID {
+				ownerIncluded = true
+				break
+			}
+		}
+		if !ownerIncluded {
+			owner, err := GetUserByID(db, team.OwnerID)
+			if err == nil {
+				members = append([]model.User{owner}, members...)
+			}
+		}
+
+		return members, nil
+	}
+
+	return []model.User{}, nil
 }
 
 // UpdateProject updates a project's name and visibility.
