@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3-snapshot-2] - 2026-04-16
+
+### Added
+- Task dependencies: a task can be marked as blocked by other tasks in the same project
+- `POST /api/v1/projects/{projectId}/tasks/{taskId}/blockers` — add a blocker
+- `DELETE /api/v1/projects/{projectId}/tasks/{taskId}/blockers/{blockerId}` — remove a blocker
+- `BlockedBy []string` field on task responses (IDs of blocking tasks)
+- Cycle detection: adding a blocker that would create a dependency cycle is rejected
+- Cascade delete: dependency removed when either task is deleted
+
 ## [1.3-snapshot-1] - 2026-04-16
 
 ### Added

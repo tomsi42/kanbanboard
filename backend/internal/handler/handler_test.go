@@ -72,7 +72,7 @@ func getEnv(key, fallback string) string {
 
 func cleanTables(t *testing.T, db *sql.DB) {
 	t.Helper()
-	_, err := db.Exec("TRUNCATE comments, tasks, labels, columns, projects, team_members, teams, sessions, users, app_settings CASCADE")
+	_, err := db.Exec("TRUNCATE task_dependencies, comments, tasks, labels, columns, projects, team_members, teams, sessions, users, app_settings CASCADE")
 	if err != nil {
 		t.Fatalf("clean tables: %v", err)
 	}

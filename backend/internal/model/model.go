@@ -71,6 +71,7 @@ type Task struct {
 	DueDate       *time.Time `json:"dueDate,omitempty"`
 	Position      int        `json:"position"`
 	TaskNumber    int        `json:"taskNumber"`
+	BlockedBy     []string   `json:"blockedBy,omitempty"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	UpdatedAt     time.Time  `json:"updatedAt"`
 }

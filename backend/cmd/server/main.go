@@ -101,6 +101,8 @@ func main() {
 	mux.HandleFunc("PUT /api/v1/projects/{projectId}/tasks/{taskId}", auth(handler.HandleUpdateTask(db)))
 	mux.HandleFunc("PUT /api/v1/projects/{projectId}/tasks/{taskId}/move", auth(handler.HandleMoveTask(db)))
 	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/tasks/{taskId}", auth(handler.HandleDeleteTask(db)))
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/tasks/{taskId}/blockers", auth(handler.HandleAddBlocker(db)))
+	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/tasks/{taskId}/blockers/{blockerId}", auth(handler.HandleRemoveBlocker(db)))
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/tasks/{taskId}/comments", auth(handler.HandleListComments(db)))
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/tasks/{taskId}/comments", auth(handler.HandleCreateComment(db)))
 	mux.HandleFunc("PUT /api/v1/projects/{projectId}/tasks/{taskId}/comments/{commentId}", auth(handler.HandleUpdateComment(db)))

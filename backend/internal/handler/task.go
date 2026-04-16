@@ -273,6 +273,85 @@ func HandleMoveTask(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// HandleAddBlocker adds a blocker dependency to a task.
+// POST /api/v1/projects/{projectId}/tasks/{taskId}/blockers
+// Body: {"blockerTaskId": "<uuid>"}
+func HandleAddBlocker(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := middleware.UserFromContext(r.Context())
+		projectID := r.PathValue("projectId")
+		taskID := r.PathValue("taskId")
+
+		if _, ok := checkEditPermission(db, w, projectID, user); !ok {
+			return
+		}
+
+		var req struct {
+			BlockerTaskID string `json:"blockerTaskId"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+		if req.BlockerTaskID == "" {
+			writeError(w, http.StatusBadRequest, "blockerTaskId is required")
+			return
+		}
+
+		err := store.AddBlocker(db, projectID, req.BlockerTaskID, taskID)
+		if errors.Is(err, store.ErrSelfDependency) {
+			writeError(w, http.StatusBadRequest, "A task cannot block itself")
+			return
+		}
+		if errors.Is(err, store.ErrCrossProjectDependency) {
+			writeError(w, http.StatusBadRequest, "Blocker must be in the same project")
+			return
+		}
+		if errors.Is(err, store.ErrDependencyCycle) {
+			writeError(w, http.StatusBadRequest, "Adding this blocker would create a dependency cycle")
+			return
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to add blocker")
+			return
+		}
+
+		task, err := store.GetTask(db, taskID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to get task")
+			return
+		}
+		writeJSON(w, http.StatusOK, task)
+	}
+}
+
+// HandleRemoveBlocker removes a blocker dependency from a task.
+// DELETE /api/v1/projects/{projectId}/tasks/{taskId}/blockers/{blockerId}
+func HandleRemoveBlocker(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := middleware.UserFromContext(r.Context())
+		projectID := r.PathValue("projectId")
+		taskID := r.PathValue("taskId")
+		blockerID := r.PathValue("blockerId")
+
+		if _, ok := checkEditPermission(db, w, projectID, user); !ok {
+			return
+		}
+
+		if err := store.RemoveBlocker(db, blockerID, taskID); err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to remove blocker")
+			return
+		}
+
+		task, err := store.GetTask(db, taskID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to get task")
+			return
+		}
+		writeJSON(w, http.StatusOK, task)
+	}
+}
+
 // HandleDeleteTask deletes a task.
 func HandleDeleteTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -68,6 +68,7 @@ func CreateTask(db *sql.DB, task model.Task) (model.Task, error) {
 }
 
 // ListTasksForProject returns all tasks for a project, ordered by column then position.
+// BlockedBy is hydrated for each task in a single additional query.
 func ListTasksForProject(db *sql.DB, projectID string) ([]model.Task, error) {
 	rows, err := db.Query(`
 		SELECT t.id, t.project_id, t.column_id, t.label_id, t.assignee_id, t.creator_id,
@@ -93,7 +94,21 @@ func ListTasksForProject(db *sql.DB, projectID string) ([]model.Task, error) {
 		}
 		tasks = append(tasks, t)
 	}
-	return tasks, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	blockerMap, err := ListBlockersForProject(db, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list blockers: %w", err)
+	}
+	for i := range tasks {
+		if blockers, ok := blockerMap[tasks[i].ID]; ok {
+			tasks[i].BlockedBy = blockers
+		}
+	}
+
+	return tasks, nil
 }
 
 // ListSubtasks returns all subtasks of a parent task.
@@ -124,7 +139,7 @@ func ListSubtasks(db *sql.DB, parentTaskID string) ([]model.Task, error) {
 	return tasks, rows.Err()
 }
 
-// GetTask retrieves a task by ID.
+// GetTask retrieves a task by ID. BlockedBy is hydrated.
 func GetTask(db *sql.DB, taskID string) (model.Task, error) {
 	var t model.Task
 	err := db.QueryRow(`
@@ -141,6 +156,13 @@ func GetTask(db *sql.DB, taskID string) (model.Task, error) {
 	if err != nil {
 		return model.Task{}, fmt.Errorf("get task: %w", err)
 	}
+
+	blockers, err := GetBlockersForTask(db, taskID)
+	if err != nil {
+		return model.Task{}, fmt.Errorf("get blockers: %w", err)
+	}
+	t.BlockedBy = blockers
+
 	return t, nil
 }
 
