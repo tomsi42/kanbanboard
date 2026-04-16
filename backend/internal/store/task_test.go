@@ -215,6 +215,71 @@ func TestMoveTask_crossColumn(t *testing.T) {
 	}
 }
 
+func TestGetTaskDepth_topLevel(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	user := seedUser(t, db, "Alice", "alice@test.com")
+	project := seedProject(t, db, "Board", &user.ID, nil)
+	columns, _ := GetColumnsForProject(db, project.ID)
+
+	task := seedTask(t, db, project.ID, columns[0].ID, user.ID, "Top level")
+	depth, err := GetTaskDepth(db, task.ID)
+	if err != nil {
+		t.Fatalf("GetTaskDepth: %v", err)
+	}
+	if depth != 0 {
+		t.Errorf("depth = %d, want 0", depth)
+	}
+}
+
+func TestGetTaskDepth_subtask(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	user := seedUser(t, db, "Alice", "alice@test.com")
+	project := seedProject(t, db, "Board", &user.ID, nil)
+	columns, _ := GetColumnsForProject(db, project.ID)
+
+	parent := seedTask(t, db, project.ID, columns[0].ID, user.ID, "Parent")
+	subtask, _ := CreateTask(db, model.Task{
+		ProjectID: project.ID, ColumnID: columns[0].ID, CreatorID: user.ID,
+		ParentTaskID: &parent.ID, Title: "Subtask", Priority: "none",
+	})
+
+	depth, err := GetTaskDepth(db, subtask.ID)
+	if err != nil {
+		t.Fatalf("GetTaskDepth: %v", err)
+	}
+	if depth != 1 {
+		t.Errorf("depth = %d, want 1", depth)
+	}
+}
+
+func TestGetTaskDepth_subSubtask(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	user := seedUser(t, db, "Alice", "alice@test.com")
+	project := seedProject(t, db, "Board", &user.ID, nil)
+	columns, _ := GetColumnsForProject(db, project.ID)
+
+	parent := seedTask(t, db, project.ID, columns[0].ID, user.ID, "Parent")
+	subtask, _ := CreateTask(db, model.Task{
+		ProjectID: project.ID, ColumnID: columns[0].ID, CreatorID: user.ID,
+		ParentTaskID: &parent.ID, Title: "Subtask", Priority: "none",
+	})
+	subSubtask, _ := CreateTask(db, model.Task{
+		ProjectID: project.ID, ColumnID: columns[0].ID, CreatorID: user.ID,
+		ParentTaskID: &subtask.ID, Title: "Sub-subtask", Priority: "none",
+	})
+
+	depth, err := GetTaskDepth(db, subSubtask.ID)
+	if err != nil {
+		t.Fatalf("GetTaskDepth: %v", err)
+	}
+	if depth != 2 {
+		t.Errorf("depth = %d, want 2", depth)
+	}
+}
+
 func TestMoveTask_subtasksFollow(t *testing.T) {
 	db := testDB(t)
 	cleanTables(t, db)
@@ -226,7 +291,6 @@ func TestMoveTask_subtasksFollow(t *testing.T) {
 
 	parent := seedTask(t, db, project.ID, col0.ID, user.ID, "Parent")
 
-	// Create subtask in same column as parent
 	subtask, err := CreateTask(db, model.Task{
 		ProjectID:    project.ID,
 		ColumnID:     col0.ID,
@@ -239,7 +303,6 @@ func TestMoveTask_subtasksFollow(t *testing.T) {
 		t.Fatalf("create subtask: %v", err)
 	}
 
-	// Move parent to col1 — subtask should follow
 	if err := MoveTask(db, parent.ID, col1.ID, 0); err != nil {
 		t.Fatalf("move parent: %v", err)
 	}
@@ -250,6 +313,63 @@ func TestMoveTask_subtasksFollow(t *testing.T) {
 	}
 	if moved.ColumnID != col1.ID {
 		t.Error("subtask should have followed parent to new column")
+	}
+}
+
+func TestMoveTask_subSubtasksFollow(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	user := seedUser(t, db, "Alice", "alice@test.com")
+	project := seedProject(t, db, "Board", &user.ID, nil)
+	columns, _ := GetColumnsForProject(db, project.ID)
+	col0 := columns[0]
+	col1 := columns[1]
+
+	parent := seedTask(t, db, project.ID, col0.ID, user.ID, "Parent")
+
+	subtask, err := CreateTask(db, model.Task{
+		ProjectID:    project.ID,
+		ColumnID:     col0.ID,
+		CreatorID:    user.ID,
+		ParentTaskID: &parent.ID,
+		Title:        "Subtask",
+		Priority:     "none",
+	})
+	if err != nil {
+		t.Fatalf("create subtask: %v", err)
+	}
+
+	subSubtask, err := CreateTask(db, model.Task{
+		ProjectID:    project.ID,
+		ColumnID:     col0.ID,
+		CreatorID:    user.ID,
+		ParentTaskID: &subtask.ID,
+		Title:        "Sub-subtask",
+		Priority:     "none",
+	})
+	if err != nil {
+		t.Fatalf("create sub-subtask: %v", err)
+	}
+
+	// Move parent — both subtask and sub-subtask should follow
+	if err := MoveTask(db, parent.ID, col1.ID, 0); err != nil {
+		t.Fatalf("move parent: %v", err)
+	}
+
+	movedSub, err := GetTask(db, subtask.ID)
+	if err != nil {
+		t.Fatalf("get subtask: %v", err)
+	}
+	if movedSub.ColumnID != col1.ID {
+		t.Error("subtask should have followed parent to new column")
+	}
+
+	movedSubSub, err := GetTask(db, subSubtask.ID)
+	if err != nil {
+		t.Fatalf("get sub-subtask: %v", err)
+	}
+	if movedSubSub.ColumnID != col1.ID {
+		t.Error("sub-subtask should have followed parent to new column")
 	}
 }
 

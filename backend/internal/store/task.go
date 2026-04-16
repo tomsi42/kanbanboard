@@ -139,6 +139,32 @@ func ListSubtasks(db *sql.DB, parentTaskID string) ([]model.Task, error) {
 	return tasks, rows.Err()
 }
 
+// GetTaskDepth returns the nesting depth of a task: 0 for top-level, 1 for subtask, 2 for sub-subtask.
+// Since the maximum enforced depth is 2, the chain is followed at most twice.
+func GetTaskDepth(db *sql.DB, taskID string) (int, error) {
+	var parentID *string
+	err := db.QueryRow("SELECT parent_task_id FROM tasks WHERE id = $1", taskID).Scan(&parentID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrTaskNotFound
+	}
+	if err != nil {
+		return 0, fmt.Errorf("get task depth: %w", err)
+	}
+	if parentID == nil {
+		return 0, nil
+	}
+
+	var grandParentID *string
+	err = db.QueryRow("SELECT parent_task_id FROM tasks WHERE id = $1", *parentID).Scan(&grandParentID)
+	if err != nil {
+		return 0, fmt.Errorf("get parent depth: %w", err)
+	}
+	if grandParentID == nil {
+		return 1, nil
+	}
+	return 2, nil
+}
+
 // GetTask retrieves a task by ID. BlockedBy is hydrated.
 func GetTask(db *sql.DB, taskID string) (model.Task, error) {
 	var t model.Task
@@ -210,14 +236,22 @@ func MoveTask(db *sql.DB, taskID, newColumnID string, position int) error {
 		return fmt.Errorf("move task: %w", err)
 	}
 
-	// If moving between columns, also move subtasks that are in the same source column
+	// If moving between columns, cascade to all descendants that are in the same source column.
+	// Uses a recursive CTE so sub-subtasks follow their subtask parents.
 	if oldColumnID != newColumnID {
-		_, err = tx.Exec(
-			"UPDATE tasks SET column_id = $1, updated_at = NOW() WHERE parent_task_id = $2 AND column_id = $3",
-			newColumnID, taskID, oldColumnID,
-		)
+		_, err = tx.Exec(`
+			WITH RECURSIVE descendants AS (
+				SELECT id FROM tasks WHERE parent_task_id = $1 AND column_id = $2
+				UNION ALL
+				SELECT t.id FROM tasks t
+				JOIN descendants d ON t.parent_task_id = d.id
+				WHERE t.column_id = $2
+			)
+			UPDATE tasks SET column_id = $3, updated_at = NOW()
+			WHERE id IN (SELECT id FROM descendants)
+		`, taskID, oldColumnID, newColumnID)
 		if err != nil {
-			return fmt.Errorf("move subtasks: %w", err)
+			return fmt.Errorf("move descendants: %w", err)
 		}
 	}
 

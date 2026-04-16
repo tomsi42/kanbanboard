@@ -57,6 +57,23 @@ func HandleCreateTask(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Enforce maximum nesting depth of 2 (task → subtask → sub-subtask)
+		if req.ParentTaskID != nil {
+			depth, err := store.GetTaskDepth(db, *req.ParentTaskID)
+			if errors.Is(err, store.ErrTaskNotFound) {
+				writeError(w, http.StatusBadRequest, "Parent task not found")
+				return
+			}
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "Failed to check task depth")
+				return
+			}
+			if depth >= 2 {
+				writeError(w, http.StatusBadRequest, "Sub-subtasks cannot have children (maximum nesting depth is 2)")
+				return
+			}
+		}
+
 		// Set default label if none provided
 		var labelID *string
 		if defaultLabel, labelErr := store.GetDefaultLabelForProject(db, projectID); labelErr == nil {

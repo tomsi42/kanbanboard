@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3-snapshot-4] - 2026-04-16
+
+### Added
+- Sub-subtasks: tasks can now be nested up to depth 2 (task → subtask → sub-subtask)
+- `GetTaskDepth` store function — follows parent chain at most twice, returns 0/1/2
+- Depth enforcement in `HandleCreateTask`: returns 400 if parent is already at depth 2
+- Recursive CTE in `MoveTask` — when a parent task moves columns, all descendants (subtasks and sub-subtasks) follow
+- Store tests for `GetTaskDepth` at all three depth levels
+- Store tests for single-level and two-level cascade on `MoveTask`
+- Handler tests for sub-subtask creation and depth-exceeded rejection
+
 ## [1.3-snapshot-3] - 2026-04-16
 
 ### Added

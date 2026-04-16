@@ -330,7 +330,7 @@ func TestCreateUser_duplicateEmail(t *testing.T) {
 		map[string]any{
 			"name":     "New User",
 			"email":    "taken@test.com",
-			"password": "password1",
+			"password": "Ab1!@#$%",
 		}, token)
 	rr := doRequest(mux, req)
 
@@ -490,5 +490,67 @@ func TestSearchTasks_returnsResults(t *testing.T) {
 	}
 	if results[0]["title"] != "Fix the login bug" {
 		t.Errorf("title = %v, want %q", results[0]["title"], "Fix the login bug")
+	}
+}
+
+func TestCreateTask_subSubtaskAllowed(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	mux := setupMux(db)
+
+	user := seedUser(t, db, "Alice", "alice@test.com", false, false)
+	project := seedProject(t, db, "Board", &user.ID, nil)
+	columns, _ := store.GetColumnsForProject(db, project.ID)
+	col := columns[0]
+
+	parent, _ := store.CreateTask(db, model.Task{
+		ProjectID: project.ID, ColumnID: col.ID, CreatorID: user.ID,
+		Title: "Parent", Priority: "none",
+	})
+	subtask, _ := store.CreateTask(db, model.Task{
+		ProjectID: project.ID, ColumnID: col.ID, CreatorID: user.ID,
+		ParentTaskID: &parent.ID, Title: "Subtask", Priority: "none",
+	})
+
+	token := createSession(t, db, user.ID)
+	req := authRequest("POST", "/api/v1/projects/"+project.ID+"/tasks",
+		map[string]any{"title": "Sub-subtask", "columnId": col.ID, "parentTaskId": subtask.ID}, token)
+	rr := doRequest(mux, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Errorf("status = %d, want 201 (sub-subtask should be allowed)", rr.Code)
+	}
+}
+
+func TestCreateTask_depthExceededRejected(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	mux := setupMux(db)
+
+	user := seedUser(t, db, "Alice", "alice@test.com", false, false)
+	project := seedProject(t, db, "Board", &user.ID, nil)
+	columns, _ := store.GetColumnsForProject(db, project.ID)
+	col := columns[0]
+
+	parent, _ := store.CreateTask(db, model.Task{
+		ProjectID: project.ID, ColumnID: col.ID, CreatorID: user.ID,
+		Title: "Parent", Priority: "none",
+	})
+	subtask, _ := store.CreateTask(db, model.Task{
+		ProjectID: project.ID, ColumnID: col.ID, CreatorID: user.ID,
+		ParentTaskID: &parent.ID, Title: "Subtask", Priority: "none",
+	})
+	subSubtask, _ := store.CreateTask(db, model.Task{
+		ProjectID: project.ID, ColumnID: col.ID, CreatorID: user.ID,
+		ParentTaskID: &subtask.ID, Title: "Sub-subtask", Priority: "none",
+	})
+
+	token := createSession(t, db, user.ID)
+	req := authRequest("POST", "/api/v1/projects/"+project.ID+"/tasks",
+		map[string]any{"title": "Too deep", "columnId": col.ID, "parentTaskId": subSubtask.ID}, token)
+	rr := doRequest(mux, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 (depth > 2 should be rejected)", rr.Code)
 	}
 }
