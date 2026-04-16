@@ -64,6 +64,12 @@
     task.parentTaskId ? (project.tasks || []).find(t => t.id === task.parentTaskId) : null
   );
 
+  // Depth: 0 = top-level, 1 = subtask, 2 = sub-subtask
+  let taskDepth = $derived(
+    !task.parentTaskId ? 0 :
+    !(project.tasks || []).find(t => t.id === task.parentTaskId)?.parentTaskId ? 1 : 2
+  );
+
   // Get column name for display
   function columnName(colId) {
     const col = project.columns.find(c => c.id === colId);
@@ -98,7 +104,7 @@
   function handleColumnChange() {
     if (columnId !== task.columnId) {
       // Warn if moving parent to Done with incomplete subtasks
-      if (columnId === doneColumnId && !task.parentTaskId && subtasks.length > 0) {
+      if (columnId === doneColumnId && taskDepth < 2 && subtasks.length > 0) {
         const incompleteCount = subtasks.filter(t => t.columnId !== doneColumnId).length;
         if (incompleteCount > 0) {
           if (!confirm('Not all subtasks are done. Move to Done anyway?')) {
@@ -396,8 +402,8 @@
         />
       </div>
 
-      <!-- Subtasks section (only for non-subtasks) -->
-      {#if !task.parentTaskId}
+      <!-- Subtasks section (top-level and subtasks can have children; sub-subtasks cannot) -->
+      {#if taskDepth < 2}
         <div class="subtasks-section">
           <label>Subtasks</label>
           {#if subtasks.length > 0}

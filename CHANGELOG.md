@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3-snapshot-5] - 2026-04-16
+
+### Added
+- Sub-subtasks in the UI: the "Subtasks" section in the task detail panel is now visible for subtasks (depth 1), allowing sub-subtasks to be created and listed
+- `taskDepth` derived in `TaskDetailPanel` (0 = top-level, 1 = subtask, 2 = sub-subtask)
+
+### Changed
+- Task detail panel subtasks section gated on `taskDepth < 2` instead of `!task.parentTaskId`
+- "Move to Done with incomplete subtasks" warning applies to subtasks with sub-subtasks as well
+
 ## [1.3-snapshot-4] - 2026-04-16
 
 ### Added
