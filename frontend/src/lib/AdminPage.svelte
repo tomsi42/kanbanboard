@@ -1,5 +1,5 @@
 <script>
-  import { adminListUsers, adminCreateUser, adminUpdateUser, adminResetPassword, adminGetDeleteImpact, adminDeleteUser, adminGetSettings, adminUpdateSettings } from './api.js';
+  import { adminListUsers, adminCreateUser, adminUpdateUser, adminResetPassword, adminGetDeleteImpact, adminDeleteUser, adminGetSettings, adminUpdateSettings, adminListTokens, adminCreateToken, adminDeleteToken } from './api.js';
   import { validatePassword } from './validate.js';
 
   let { onBack, currentUserId = '', onUserDeleted } = $props();
@@ -60,6 +60,57 @@
   let resetUserId = $state(null);
   let resetPassword = $state('');
   let resetError = $state('');
+
+  // Token management
+  let tokenUserId = $state(null);
+  let tokenUserName = $state('');
+  let tokens = $state([]);
+  let newTokenName = $state('');
+  let tokenError = $state('');
+  let createdToken = $state(''); // raw token shown once
+
+  async function openTokens(user) {
+    tokenUserId = user.id;
+    tokenUserName = user.name;
+    newTokenName = '';
+    tokenError = '';
+    createdToken = '';
+    await loadTokens();
+  }
+
+  async function loadTokens() {
+    try {
+      tokens = await adminListTokens(tokenUserId);
+    } catch (err) {
+      tokenError = err.message;
+    }
+  }
+
+  async function handleCreateToken(e) {
+    e.preventDefault();
+    tokenError = '';
+    createdToken = '';
+    if (!newTokenName.trim()) { tokenError = 'Token name is required.'; return; }
+    try {
+      const result = await adminCreateToken(tokenUserId, newTokenName.trim());
+      createdToken = result.token;
+      newTokenName = '';
+      await loadTokens();
+    } catch (err) {
+      tokenError = err.message;
+    }
+  }
+
+  async function handleRevokeToken(tokenId) {
+    if (!confirm('Revoke this token? The agent using it will lose access.')) return;
+    try {
+      await adminDeleteToken(tokenUserId, tokenId);
+      createdToken = '';
+      await loadTokens();
+    } catch (err) {
+      tokenError = err.message;
+    }
+  }
 
   async function loadUsers() {
     loading = true;
@@ -329,6 +380,46 @@
       </section>
     {/if}
 
+    {#if tokenUserId}
+      <section class="form-section">
+        <div class="token-header">
+          <h2>API Tokens — {tokenUserName}</h2>
+          <button class="cancel-btn" onclick={() => { tokenUserId = null; createdToken = ''; }}>Close</button>
+        </div>
+
+        {#if createdToken}
+          <div class="token-reveal">
+            <p class="token-reveal-msg">Token created. Copy it now — it will not be shown again.</p>
+            <div class="token-value">{createdToken}</div>
+          </div>
+        {/if}
+
+        {#if tokens.length > 0}
+          <table class="token-table">
+            <thead><tr><th>Name</th><th>Created</th><th>Last used</th><th></th></tr></thead>
+            <tbody>
+              {#each tokens as t (t.id)}
+                <tr>
+                  <td>{t.name}</td>
+                  <td>{new Date(t.createdAt).toLocaleDateString()}</td>
+                  <td>{t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleDateString() : '—'}</td>
+                  <td><button class="delete-user-btn" onclick={() => handleRevokeToken(t.id)}>Revoke</button></td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {:else}
+          <p class="no-tokens">No tokens yet.</p>
+        {/if}
+
+        <form class="token-create" onsubmit={handleCreateToken}>
+          <input type="text" bind:value={newTokenName} placeholder="Token name (e.g. agent-coder)" />
+          <button type="submit" class="save-btn">Create token</button>
+        </form>
+        {#if tokenError}<p class="error">{tokenError}</p>{/if}
+      </section>
+    {/if}
+
     {#if loading}
       <p>Loading users...</p>
     {:else}
@@ -370,6 +461,7 @@
                 {#if !user.deletedAt}
                   <button onclick={() => startEdit(user)}>Edit</button>
                   <button onclick={() => { resetUserId = user.id; resetPassword = ''; resetError = ''; message = ''; }}>Reset PW</button>
+                  <button onclick={() => openTokens(user)}>Tokens</button>
                   {#if user.id !== currentUserId}
                     <button class="delete-user-btn" onclick={() => handleDeleteUser(user)}>Delete</button>
                   {/if}
@@ -519,4 +611,27 @@
 
   .error { color: #c00; font-size: 0.85rem; margin: 4px 0; }
   .success { color: #0a0; font-size: 0.85rem; margin: 0 0 12px; }
+
+  .token-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .token-header h2 { margin: 0; }
+
+  .token-reveal {
+    background: #f0fff0; border: 1px solid #b0e0b0; border-radius: 4px;
+    padding: 12px; margin-bottom: 12px;
+  }
+  .token-reveal-msg { font-size: 0.85rem; color: #060; margin: 0 0 8px; font-weight: 600; }
+  .token-value {
+    font-family: monospace; font-size: 0.8rem; word-break: break-all;
+    background: white; border: 1px solid #ccc; border-radius: 3px; padding: 6px 8px;
+    user-select: all;
+  }
+
+  .token-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 0.875rem; }
+  .token-table th, .token-table td { padding: 6px 8px; border-bottom: 1px solid #eee; text-align: left; }
+  .token-table th { font-weight: 600; color: #666; font-size: 0.75rem; text-transform: uppercase; }
+
+  .no-tokens { font-size: 0.85rem; color: #999; margin: 0 0 12px; }
+
+  .token-create { display: flex; gap: 8px; align-items: center; }
+  .token-create input { flex: 1; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.875rem; }
 </style>

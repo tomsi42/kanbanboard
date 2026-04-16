@@ -67,10 +67,18 @@ func main() {
 	mux.HandleFunc("GET /api/v1/admin/users/{userId}/delete-impact", admin(handler.HandleDeleteUserImpact(db)))
 	mux.HandleFunc("DELETE /api/v1/admin/users/{userId}", admin(handler.HandleDeleteUser(db)))
 
+	// Token management — admin creates/lists/revokes tokens for agent users
+	mux.HandleFunc("POST /api/v1/admin/users/{userId}/tokens", admin(handler.HandleCreateTokenForUser(db)))
+	mux.HandleFunc("GET /api/v1/admin/users/{userId}/tokens", admin(handler.HandleListTokensForUser(db)))
+	mux.HandleFunc("DELETE /api/v1/admin/users/{userId}/tokens/{tokenId}", admin(handler.HandleDeleteTokenForUser(db)))
+
 	// User routes (auth required)
 	mux.HandleFunc("GET /api/v1/users", auth(handler.HandleListUsersBasic(db)))
 	mux.HandleFunc("PUT /api/v1/users/me", auth(handler.HandleUpdateProfile(db)))
 	mux.HandleFunc("PUT /api/v1/users/me/password", auth(handler.HandleChangePassword(db)))
+	mux.HandleFunc("POST /api/v1/users/me/tokens", auth(handler.HandleCreateOwnToken(db)))
+	mux.HandleFunc("GET /api/v1/users/me/tokens", auth(handler.HandleListOwnTokens(db)))
+	mux.HandleFunc("DELETE /api/v1/users/me/tokens/{tokenId}", auth(handler.HandleDeleteOwnToken(db)))
 
 	// Team routes (auth required, owner checks in handler)
 	mux.HandleFunc("GET /api/v1/teams", auth(handler.HandleListTeams(db)))

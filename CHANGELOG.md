@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3-snapshot-7] - 2026-04-16
+
+### Added
+- `api_tokens` table — id, user_id, name, token_hash (SHA-256), created_at, last_used_at
+- `ApiToken` model
+- `store.CreateApiToken` — generates 32 random bytes, stores SHA-256 hash, returns raw token once
+- `store.GetUserByToken` — hash-and-lookup; updates last_used_at best-effort
+- `store.ListApiTokens`, `store.DeleteApiToken`
+- `RequireAuth` middleware now accepts `Authorization: Bearer <token>` (checked before session cookie)
+- Admin endpoints: `POST/GET/DELETE /api/v1/admin/users/{userId}/tokens`
+- Self-service endpoints: `POST/GET/DELETE /api/v1/users/me/tokens`
+- Admin UI: "Tokens" button per user opens token management panel (create, list, revoke)
+- Created token shown once in a highlighted box with `user-select: all` for easy copying
+
 ## [1.3-snapshot-6] - 2026-04-16
 
 ### Added

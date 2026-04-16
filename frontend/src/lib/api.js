@@ -164,6 +164,18 @@ export function adminDeleteUser(userId) {
   return request('DELETE', `/admin/users/${userId}`);
 }
 
+export function adminListTokens(userId) {
+  return request('GET', `/admin/users/${userId}/tokens`);
+}
+
+export function adminCreateToken(userId, name) {
+  return request('POST', `/admin/users/${userId}/tokens`, { name });
+}
+
+export function adminDeleteToken(userId, tokenId) {
+  return request('DELETE', `/admin/users/${userId}/tokens/${tokenId}`);
+}
+
 export function searchTasks(query) {
   return request('GET', `/search/tasks?q=${encodeURIComponent(query)}`);
 }

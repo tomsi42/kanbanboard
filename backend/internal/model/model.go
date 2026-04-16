@@ -100,3 +100,12 @@ type AppSetting struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
+
+// ApiToken represents a long-lived API access token for programmatic access.
+type ApiToken struct {
+	ID          string     `json:"id"`
+	UserID      string     `json:"userId"`
+	Name        string     `json:"name"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	LastUsedAt  *time.Time `json:"lastUsedAt,omitempty"`
+}

@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 
 	"kanbanboard/internal/model"
 	"kanbanboard/internal/store"
@@ -14,25 +16,13 @@ type contextKey string
 
 const userContextKey contextKey = "user"
 
-// RequireAuth is middleware that checks for a valid session cookie.
-// If valid, the user is added to the request context.
-// If invalid or missing, returns 401.
+// RequireAuth is middleware that accepts either a Bearer API token or a session cookie.
+// Bearer token takes precedence when the Authorization header is present.
+// If authentication fails, returns 401.
 func RequireAuth(db *sql.DB, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("session_token")
+		user, err := resolveUser(db, r)
 		if err != nil {
-			writeUnauthorized(w)
-			return
-		}
-
-		session, err := store.GetSession(db, cookie.Value)
-		if err != nil {
-			writeUnauthorized(w)
-			return
-		}
-
-		user, err := store.GetUserByID(db, session.UserID)
-		if err != nil || !user.IsActive || user.DeletedAt != nil {
 			writeUnauthorized(w)
 			return
 		}
@@ -40,6 +30,38 @@ func RequireAuth(db *sql.DB, next http.HandlerFunc) http.HandlerFunc {
 		ctx := context.WithValue(r.Context(), userContextKey, user)
 		next(w, r.WithContext(ctx))
 	}
+}
+
+// resolveUser extracts the authenticated user from the request.
+// Checks Bearer token first, then session cookie.
+func resolveUser(db *sql.DB, r *http.Request) (model.User, error) {
+	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+		raw := strings.TrimPrefix(auth, "Bearer ")
+		user, err := store.GetUserByToken(db, raw)
+		if err != nil {
+			return model.User{}, err
+		}
+		if !user.IsActive || user.DeletedAt != nil {
+			return model.User{}, errors.New("account inactive")
+		}
+		return user, nil
+	}
+
+	cookie, err := r.Cookie("session_token")
+	if err != nil {
+		return model.User{}, errors.New("no credentials")
+	}
+
+	session, err := store.GetSession(db, cookie.Value)
+	if err != nil {
+		return model.User{}, err
+	}
+
+	user, err := store.GetUserByID(db, session.UserID)
+	if err != nil || !user.IsActive || user.DeletedAt != nil {
+		return model.User{}, errors.New("invalid session")
+	}
+	return user, nil
 }
 
 // RequireAdmin wraps RequireAuth and additionally checks that the user is an admin.
