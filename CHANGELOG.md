@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3-snapshot-1] - 2026-04-16
+
+### Added
+- Critical priority level for tasks (critical > high > medium > low > none)
+- Priority dropdown highlights critical tasks in red
+
+### Changed
+- Password policy strengthened: now requires uppercase letter, lowercase letter, number, and special character (minimum 8 characters)
+
 ## [1.2.2] - 2026-04-08
 
 ### Added

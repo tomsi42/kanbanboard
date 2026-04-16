@@ -319,11 +319,13 @@
       <div class="field-row">
         <div class="field half">
           <label for="priority">Priority</label>
-          <select id="priority" bind:value={priority} onchange={handlePriorityChange} disabled={!canEdit}>
+          <select id="priority" bind:value={priority} onchange={handlePriorityChange} disabled={!canEdit}
+            class:priority-critical={priority === 'critical'}>
             <option value="none">None</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
+            <option value="critical">Critical</option>
           </select>
         </div>
 
@@ -602,6 +604,12 @@
   select:focus, input:focus {
     outline: none;
     border-color: #4a90d9;
+  }
+
+  select.priority-critical {
+    border-color: #c00;
+    color: #c00;
+    font-weight: 600;
   }
 
   .subtasks-section {

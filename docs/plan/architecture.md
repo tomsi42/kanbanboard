@@ -25,29 +25,32 @@
 - **URL structure:** `/api/v1/{resource}` (e.g. `/api/v1/projects`, `/api/v1/tasks`)
 - **Response format:** JSON
 - **Error format:** `{ "error": "message" }` with appropriate HTTP status codes
-- **Authentication:** Session cookie (set on login, checked via middleware)
+- **Authentication:** Session cookie (browser) or `Authorization: Bearer <token>` (agents/programmatic). Middleware checks Bearer first.
 - **JSON naming:** camelCase (matches JavaScript/Svelte convention)
 
 ## Key decisions
 
 - **Svelte over HTMX:** Kanban drag-and-drop is fundamentally a client-side interaction. HTMX would require bolting on Sortable.js and Alpine.js. Svelte handles this natively with better ecosystem support (svelte-dnd-action).
-- **No ORM:** Standard `database/sql` with pgx driver. 7 entities, manageable query count. No magic, full control.
+- **No ORM:** Standard `database/sql` with pgx driver. 9 entities, manageable query count. No magic, full control.
 - **Go backend serves built Svelte frontend** as static files. In development, Svelte dev server proxies API calls to Go.
 - **Hand-rolled migration runner:** Simple Go code that tracks applied migrations in a `migrations` table and applies pending `.sql` files in order on startup.
 - **Onboarding:** First-time setup screen when no users exist. Creates admin account and sets application title.
+- **Dual authentication:** Session cookie (browser) and Bearer API token (programmatic/agent access). Middleware checks Bearer header first, then falls back to cookie. Same authorization logic applies to both.
+- **MCP server as a separate binary:** `backend/cmd/mcp/` — a standalone process that wraps the REST API over stdio transport. Configured with an API token and base URL. Keeps the MCP concern isolated from the main server and allows it to be run as a CLI tool or sidecar.
 
 ## Project structure
 
 ```
 kanbanboard/
 ├── backend/
-│   ├── cmd/server/          # main.go - entry point
+│   ├── cmd/server/          # main.go - REST API + frontend serving entry point
+│   ├── cmd/mcp/             # main.go - MCP server binary (v1.3)
 │   ├── internal/
 │   │   ├── model/           # domain entities
 │   │   ├── store/           # database access (PostgreSQL)
 │   │   ├── handler/         # REST API handlers + authorization logic
 │   │   ├── middleware/      # auth middleware (RequireAuth, RequireAdmin)
-│   │   └── validate/        # input validation (password, tag, priority)
+│   │   └── validate/        # input validation (password, tag, priority, username)
 │   ├── migrations/          # SQL migration files
 │   ├── go.mod
 │   └── Dockerfile

@@ -4,11 +4,11 @@ import "testing"
 
 func TestPassword_valid(t *testing.T) {
 	valid := []string{
-		"password1",
-		"P4ssword",
-		"12345abc",
 		"Ab1!@#$%",
-		"longpassword99",
+		"P4ssw0rd!",
+		"Hello1World!",
+		"Str0ng&Pass",
+		"MyP@ssw0rd",
 	}
 	for _, p := range valid {
 		if msg := Password(p); msg != "" {
@@ -18,20 +18,32 @@ func TestPassword_valid(t *testing.T) {
 }
 
 func TestPassword_tooShort(t *testing.T) {
-	if msg := Password("abc1"); msg == "" {
-		t.Error("Password(\"abc1\") should be invalid (too short)")
+	if msg := Password("Ab1!"); msg == "" {
+		t.Error("Password(\"Ab1!\") should be invalid (too short)")
 	}
 }
 
-func TestPassword_noLetter(t *testing.T) {
-	if msg := Password("12345678"); msg == "" {
-		t.Error("Password(\"12345678\") should be invalid (no letter)")
+func TestPassword_noUppercase(t *testing.T) {
+	if msg := Password("abc123!!"); msg == "" {
+		t.Error("Password(\"abc123!!\") should be invalid (no uppercase)")
+	}
+}
+
+func TestPassword_noLowercase(t *testing.T) {
+	if msg := Password("ABC123!!"); msg == "" {
+		t.Error("Password(\"ABC123!!\") should be invalid (no lowercase)")
 	}
 }
 
 func TestPassword_noNumber(t *testing.T) {
-	if msg := Password("abcdefgh"); msg == "" {
-		t.Error("Password(\"abcdefgh\") should be invalid (no number)")
+	if msg := Password("Abcdefg!"); msg == "" {
+		t.Error("Password(\"Abcdefg!\") should be invalid (no number)")
+	}
+}
+
+func TestPassword_noSpecial(t *testing.T) {
+	if msg := Password("Abcdef12"); msg == "" {
+		t.Error("Password(\"Abcdef12\") should be invalid (no special character)")
 	}
 }
 
@@ -44,7 +56,7 @@ func TestPassword_empty(t *testing.T) {
 // --- Priority ---
 
 func TestPriority_valid(t *testing.T) {
-	valid := []string{"none", "low", "medium", "high"}
+	valid := []string{"none", "low", "medium", "high", "critical"}
 	for _, p := range valid {
 		if msg := Priority(p); msg != "" {
 			t.Errorf("Priority(%q) = %q, want empty (valid)", p, msg)
@@ -53,7 +65,7 @@ func TestPriority_valid(t *testing.T) {
 }
 
 func TestPriority_invalid(t *testing.T) {
-	invalid := []string{"", "urgent", "HIGH", "1", "critical"}
+	invalid := []string{"", "urgent", "HIGH", "CRITICAL", "1"}
 	for _, p := range invalid {
 		if msg := Priority(p); msg == "" {
 			t.Errorf("Priority(%q) should be invalid", p)
