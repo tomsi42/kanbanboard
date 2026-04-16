@@ -42,8 +42,8 @@ export function getHealth() {
   return request('GET', '/health');
 }
 
-export function login(email, password) {
-  return request('POST', '/auth/login', { email, password });
+export function login(loginValue, password) {
+  return request('POST', '/auth/login', { login: loginValue, password });
 }
 
 export function logout() {

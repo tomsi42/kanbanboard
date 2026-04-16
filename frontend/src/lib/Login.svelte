@@ -7,6 +7,7 @@
   let mode = $state('login'); // 'login' | 'register'
 
   let name = $state('');
+  let loginValue = $state('');
   let email = $state('');
   let password = $state('');
   let confirmPassword = $state('');
@@ -17,6 +18,7 @@
     mode = m;
     error = '';
     name = '';
+    loginValue = '';
     email = '';
     password = '';
     confirmPassword = '';
@@ -26,14 +28,14 @@
     e.preventDefault();
     error = '';
 
-    if (!email || !password) {
-      error = 'Email and password are required.';
+    if (!loginValue || !password) {
+      error = 'Username/email and password are required.';
       return;
     }
 
     submitting = true;
     try {
-      const user = await login(email, password);
+      const user = await login(loginValue, password);
       onLogin(user);
     } catch (err) {
       error = err.message;
@@ -77,8 +79,8 @@
   {#if mode === 'login'}
     <form onsubmit={handleLogin}>
       <div class="field">
-        <label for="email">Email</label>
-        <input id="email" type="email" bind:value={email} required />
+        <label for="login">Username or email</label>
+        <input id="login" type="text" bind:value={loginValue} required autocomplete="username" />
       </div>
 
       <div class="field">

@@ -98,7 +98,7 @@ func DeleteTeam(db *sql.DB, teamID string) error {
 // ListTeamMembers returns all members of a team.
 func ListTeamMembers(db *sql.DB, teamID string) ([]model.User, error) {
 	rows, err := db.Query(`
-		SELECT u.id, u.name, u.email, u.password_hash, u.is_admin, u.is_team_manager, u.is_active, u.deleted_at, u.created_at, u.updated_at
+		SELECT u.id, u.name, u.email, u.username, u.password_hash, u.is_admin, u.is_team_manager, u.is_active, u.deleted_at, u.created_at, u.updated_at
 		FROM users u
 		JOIN team_members tm ON u.id = tm.user_id
 		WHERE tm.team_id = $1
@@ -112,7 +112,7 @@ func ListTeamMembers(db *sql.DB, teamID string) ([]model.User, error) {
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.IsAdmin, &u.IsTeamManager, &u.IsActive, &u.DeletedAt, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := scanUser(rows, &u); err != nil {
 			return nil, fmt.Errorf("scan member: %w", err)
 		}
 		users = append(users, u)

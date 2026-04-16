@@ -40,6 +40,7 @@
   let showCreateForm = $state(false);
   let newName = $state('');
   let newEmail = $state('');
+  let newUsername = $state('');
   let newPassword = $state('');
   let newIsAdmin = $state(false);
   let newIsTeamManager = $state(false);
@@ -49,6 +50,7 @@
   let editingUser = $state(null);
   let editName = $state('');
   let editEmail = $state('');
+  let editUsername = $state('');
   let editIsActive = $state(true);
   let editIsAdmin = $state(false);
   let editIsTeamManager = $state(false);
@@ -76,8 +78,12 @@
     e.preventDefault();
     createError = '';
 
-    if (!newName.trim() || !newEmail.trim() || !newPassword) {
-      createError = 'All fields are required.';
+    if (!newName.trim() || !newPassword) {
+      createError = 'Name and password are required.';
+      return;
+    }
+    if (!newEmail.trim() && !newUsername.trim()) {
+      createError = 'At least one of email or username is required.';
       return;
     }
 
@@ -88,12 +94,13 @@
       await adminCreateUser({
         name: newName.trim(),
         email: newEmail.trim(),
+        username: newUsername.trim(),
         password: newPassword,
         isAdmin: newIsAdmin,
         isTeamManager: newIsTeamManager,
       });
       showCreateForm = false;
-      newName = ''; newEmail = ''; newPassword = '';
+      newName = ''; newEmail = ''; newUsername = ''; newPassword = '';
       newIsAdmin = false; newIsTeamManager = false;
       message = 'User created.';
       await loadUsers();
@@ -105,7 +112,8 @@
   function startEdit(user) {
     editingUser = user;
     editName = user.name;
-    editEmail = user.email;
+    editEmail = user.email || '';
+    editUsername = user.username || '';
     editIsActive = user.isActive;
     editIsAdmin = user.isAdmin;
     editIsTeamManager = user.isTeamManager;
@@ -116,8 +124,12 @@
     e.preventDefault();
     editError = '';
 
-    if (!editName.trim() || !editEmail.trim()) {
-      editError = 'Name and email are required.';
+    if (!editName.trim()) {
+      editError = 'Name is required.';
+      return;
+    }
+    if (!editEmail.trim() && !editUsername.trim()) {
+      editError = 'At least one of email or username is required.';
       return;
     }
 
@@ -125,6 +137,7 @@
       await adminUpdateUser(editingUser.id, {
         name: editName.trim(),
         email: editEmail.trim(),
+        username: editUsername.trim(),
         isActive: editIsActive,
         isAdmin: editIsAdmin,
         isTeamManager: editIsTeamManager,
@@ -232,13 +245,19 @@
               <input type="text" bind:value={newName} required />
             </div>
             <div class="field">
-              <label>Email</label>
-              <input type="email" bind:value={newEmail} required />
+              <label>Email <span class="optional">(or username)</span></label>
+              <input type="email" bind:value={newEmail} />
             </div>
           </div>
-          <div class="field">
-            <label>Password</label>
-            <input type="password" bind:value={newPassword} required />
+          <div class="form-row">
+            <div class="field">
+              <label>Username <span class="optional">(or email)</span></label>
+              <input type="text" bind:value={newUsername} placeholder="e.g. agent_coder" />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input type="password" bind:value={newPassword} required />
+            </div>
           </div>
           <div class="checkbox-row">
             <label><input type="checkbox" bind:checked={newIsAdmin} /> Admin</label>
@@ -266,7 +285,13 @@
             </div>
             <div class="field">
               <label>Email</label>
-              <input type="email" bind:value={editEmail} required />
+              <input type="email" bind:value={editEmail} />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label>Username</label>
+              <input type="text" bind:value={editUsername} placeholder="e.g. agent_coder" />
             </div>
           </div>
           <div class="checkbox-row">
@@ -311,7 +336,7 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th>Email</th>
+            <th>Email / Username</th>
             <th>Roles</th>
             <th>Status</th>
             <th>Actions</th>
@@ -324,7 +349,10 @@
                 {user.name}
                 {#if user.deletedAt}<span class="badge deleted">Deleted</span>{/if}
               </td>
-              <td>{user.email}</td>
+              <td>
+                {#if user.email}<div>{user.email}</div>{/if}
+                {#if user.username}<div class="username-cell">@{user.username}</div>{/if}
+              </td>
               <td>
                 {#if user.isAdmin}<span class="badge admin">Admin</span>{/if}
                 {#if user.isTeamManager}<span class="badge tm">Team Mgr</span>{/if}
@@ -369,6 +397,10 @@
     cursor: pointer; font-size: 0.875rem; padding: 0; margin-bottom: 8px;
   }
   .back-btn:hover { text-decoration: underline; }
+
+  .optional { font-weight: 400; color: #999; font-size: 0.75rem; }
+
+  .username-cell { font-size: 0.8rem; color: #666; font-family: monospace; }
 
   h1 { font-size: 1.5rem; color: #333; margin: 0; }
   h2 { font-size: 1.1rem; color: #333; margin: 0 0 12px; }

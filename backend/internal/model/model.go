@@ -8,6 +8,7 @@ type User struct {
 	ID            string     `json:"id"`
 	Name          string     `json:"name"`
 	Email         string     `json:"email"`
+	Username      *string    `json:"username,omitempty"`
 	PasswordHash  string     `json:"-"`
 	IsAdmin       bool       `json:"isAdmin"`
 	IsTeamManager bool       `json:"isTeamManager"`

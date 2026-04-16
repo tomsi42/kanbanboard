@@ -64,16 +64,18 @@ func HandleUpdateSettings(db *sql.DB) http.HandlerFunc {
 }
 
 type createUserRequest struct {
-	Name          string `json:"name"`
-	Email         string `json:"email"`
-	Password      string `json:"password"`
-	IsAdmin       bool   `json:"isAdmin"`
-	IsTeamManager bool   `json:"isTeamManager"`
+	Name          string  `json:"name"`
+	Email         string  `json:"email"`
+	Username      string  `json:"username"`
+	Password      string  `json:"password"`
+	IsAdmin       bool    `json:"isAdmin"`
+	IsTeamManager bool    `json:"isTeamManager"`
 }
 
 type updateUserAdminRequest struct {
 	Name          *string `json:"name"`
 	Email         *string `json:"email"`
+	Username      *string `json:"username"`
 	IsActive      *bool   `json:"isActive"`
 	IsAdmin       *bool   `json:"isAdmin"`
 	IsTeamManager *bool   `json:"isTeamManager"`
@@ -109,9 +111,19 @@ func HandleCreateUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		if req.Name == "" || req.Email == "" || req.Password == "" {
-			writeError(w, http.StatusBadRequest, "Name, email, and password are required")
+		if req.Name == "" || req.Password == "" {
+			writeError(w, http.StatusBadRequest, "Name and password are required")
 			return
+		}
+		if req.Email == "" && req.Username == "" {
+			writeError(w, http.StatusBadRequest, "At least one of email or username is required")
+			return
+		}
+		if req.Username != "" {
+			if msg := validate.Username(req.Username); msg != "" {
+				writeError(w, http.StatusBadRequest, msg)
+				return
+			}
 		}
 
 		if msg := validate.Password(req.Password); msg != "" {
@@ -125,9 +137,15 @@ func HandleCreateUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		var username *string
+		if req.Username != "" {
+			username = &req.Username
+		}
+
 		user := model.User{
 			Name:          req.Name,
 			Email:         req.Email,
+			Username:      username,
 			PasswordHash:  string(hash),
 			IsAdmin:       req.IsAdmin,
 			IsTeamManager: req.IsTeamManager,
@@ -137,7 +155,7 @@ func HandleCreateUser(db *sql.DB) http.HandlerFunc {
 		user, err = store.CreateUser(db, user)
 		if err != nil {
 			if store.IsUniqueViolation(err) {
-				writeError(w, http.StatusConflict, "Email is already in use")
+				writeError(w, http.StatusConflict, "Email or username is already in use")
 				return
 			}
 			writeError(w, http.StatusInternalServerError, "Failed to create user")
@@ -174,6 +192,17 @@ func HandleUpdateUserAdmin(db *sql.DB) http.HandlerFunc {
 		}
 		if req.Email != nil {
 			user.Email = *req.Email
+		}
+		if req.Username != nil {
+			if *req.Username == "" {
+				user.Username = nil
+			} else {
+				if msg := validate.Username(*req.Username); msg != "" {
+					writeError(w, http.StatusBadRequest, msg)
+					return
+				}
+				user.Username = req.Username
+			}
 		}
 		if req.IsActive != nil {
 			user.IsActive = *req.IsActive

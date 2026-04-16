@@ -3,6 +3,26 @@ package validate
 
 import "unicode"
 
+// Username checks the username against the username policy:
+//   - 3-20 characters
+//   - Lowercase letters, digits, and underscores only
+//
+// Returns an error message if invalid, or empty string if valid.
+func Username(s string) string {
+	if len(s) < 3 {
+		return "Username must be at least 3 characters"
+	}
+	if len(s) > 20 {
+		return "Username must be at most 20 characters"
+	}
+	for _, r := range s {
+		if !unicode.IsLower(r) && !unicode.IsDigit(r) && r != '_' {
+			return "Username may only contain lowercase letters, digits, and underscores"
+		}
+	}
+	return ""
+}
+
 // Password checks the password against the password policy:
 //   - Minimum 8 characters
 //   - At least one uppercase letter

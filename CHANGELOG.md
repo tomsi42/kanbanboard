@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3-snapshot-6] - 2026-04-16
+
+### Added
+- `username` field on users: 3-20 chars, lowercase letters/digits/underscores, case-insensitive unique
+- Login with username or email — the `login` field in `POST /auth/login` accepts either
+- `GET /api/v1/admin/users` and create/update now include `username` in responses
+- Admin create user accepts optional `username` (at least one of email or username required)
+- Admin edit user accepts optional `username` field
+- `PUT /users/me` accepts optional `username` field
+- Username shown in admin user table as `@username`
+- Login form updated to accept username or email
+
+### Changed
+- Email is now nullable — agent accounts can be created with only a username (no email)
+- Soft-deleted users have both `email` and `username` cleared to NULL (freeing them for reuse)
+- Login error message unified to "Invalid credentials" (no longer distinguishes email vs password)
+
 ## [1.3-snapshot-5] - 2026-04-16
 
 ### Added

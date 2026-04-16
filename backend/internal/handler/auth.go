@@ -18,11 +18,12 @@ const sessionDuration = 7 * 24 * time.Hour // 7 days
 const cookieName = "session_token"
 
 type loginRequest struct {
-	Email    string `json:"email"`
+	Login    string `json:"login"`
 	Password string `json:"password"`
 }
 
 // HandleLogin authenticates a user and creates a session.
+// The login field accepts either a username or an email address.
 func HandleLogin(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req loginRequest
@@ -31,15 +32,15 @@ func HandleLogin(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		if req.Email == "" || req.Password == "" {
-			writeError(w, http.StatusBadRequest, "Email and password are required")
+		if req.Login == "" || req.Password == "" {
+			writeError(w, http.StatusBadRequest, "Username/email and password are required")
 			return
 		}
 
-		// Find user
-		user, err := store.GetUserByEmail(db, req.Email)
+		// Find user by username or email
+		user, err := store.GetUserByLogin(db, req.Login)
 		if errors.Is(err, store.ErrUserNotFound) {
-			writeError(w, http.StatusUnauthorized, "Invalid email or password")
+			writeError(w, http.StatusUnauthorized, "Invalid credentials")
 			return
 		}
 		if err != nil {
@@ -55,7 +56,7 @@ func HandleLogin(db *sql.DB) http.HandlerFunc {
 
 		// Check password
 		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-			writeError(w, http.StatusUnauthorized, "Invalid email or password")
+			writeError(w, http.StatusUnauthorized, "Invalid credentials")
 			return
 		}
 

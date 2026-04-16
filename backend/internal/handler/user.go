@@ -13,8 +13,9 @@ import (
 )
 
 type updateProfileRequest struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	Name     string  `json:"name"`
+	Email    string  `json:"email"`
+	Username *string `json:"username"`
 }
 
 type changePasswordRequest struct {
@@ -22,7 +23,7 @@ type changePasswordRequest struct {
 	NewPassword     string `json:"newPassword"`
 }
 
-// HandleUpdateProfile updates the current user's name and email.
+// HandleUpdateProfile updates the current user's name, email, and username.
 func HandleUpdateProfile(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, _ := middleware.UserFromContext(r.Context())
@@ -33,18 +34,31 @@ func HandleUpdateProfile(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		if req.Name == "" || req.Email == "" {
-			writeError(w, http.StatusBadRequest, "Name and email are required")
+		if req.Name == "" {
+			writeError(w, http.StatusBadRequest, "Name is required")
 			return
+		}
+		if req.Username != nil && *req.Username != "" {
+			if msg := validate.Username(*req.Username); msg != "" {
+				writeError(w, http.StatusBadRequest, msg)
+				return
+			}
 		}
 
 		user.Name = req.Name
 		user.Email = req.Email
+		if req.Username != nil {
+			if *req.Username == "" {
+				user.Username = nil
+			} else {
+				user.Username = req.Username
+			}
+		}
 
 		user, err := store.UpdateUser(db, user)
 		if err != nil {
 			if store.IsUniqueViolation(err) {
-				writeError(w, http.StatusConflict, "Email is already in use")
+				writeError(w, http.StatusConflict, "Email or username is already in use")
 				return
 			}
 			writeError(w, http.StatusInternalServerError, "Failed to update profile")
@@ -105,7 +119,7 @@ func HandleChangePassword(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// HandleListUsersBasic returns a lightweight list of all active users (id, name, email).
+// HandleListUsersBasic returns a lightweight list of all active users (id, name, email, username).
 func HandleListUsersBasic(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		users, err := store.ListActiveUsersBasic(db)

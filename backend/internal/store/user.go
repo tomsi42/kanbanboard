@@ -11,6 +11,29 @@ import (
 // ErrUserNotFound is returned when a user is not found.
 var ErrUserNotFound = errors.New("user not found")
 
+// scanUser scans a full user row (id, name, email, username, password_hash, is_admin,
+// is_team_manager, is_active, deleted_at, created_at, updated_at).
+func scanUser(row interface {
+	Scan(dest ...any) error
+}, u *model.User) error {
+	var emailNS sql.NullString
+	err := row.Scan(
+		&u.ID, &u.Name, &emailNS, &u.Username,
+		&u.PasswordHash, &u.IsAdmin, &u.IsTeamManager, &u.IsActive,
+		&u.DeletedAt, &u.CreatedAt, &u.UpdatedAt,
+	)
+	if err != nil {
+		return err
+	}
+	u.Email = emailNS.String
+	return nil
+}
+
+// nullString converts an empty Go string to a NULL sql value; non-empty strings are passed through.
+func nullString(s string) sql.NullString {
+	return sql.NullString{String: s, Valid: s != ""}
+}
+
 // CountUsers returns the total number of users in the database.
 func CountUsers(db *sql.DB) (int, error) {
 	var count int
@@ -24,10 +47,11 @@ func CountUsers(db *sql.DB) (int, error) {
 // CreateUser inserts a new user and returns it with the generated ID and timestamps.
 func CreateUser(db *sql.DB, user model.User) (model.User, error) {
 	err := db.QueryRow(`
-		INSERT INTO users (name, email, password_hash, is_admin, is_team_manager, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO users (name, email, username, password_hash, is_admin, is_team_manager, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at, updated_at
-	`, user.Name, user.Email, user.PasswordHash, user.IsAdmin, user.IsTeamManager, user.IsActive,
+	`, user.Name, nullString(user.Email), user.Username,
+		user.PasswordHash, user.IsAdmin, user.IsTeamManager, user.IsActive,
 	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return model.User{}, fmt.Errorf("create user: %w", err)
@@ -35,14 +59,33 @@ func CreateUser(db *sql.DB, user model.User) (model.User, error) {
 	return user, nil
 }
 
+// GetUserByLogin retrieves a user by email address or username (case-insensitive).
+// Excludes soft-deleted users (prevents login as deleted user).
+func GetUserByLogin(db *sql.DB, login string) (model.User, error) {
+	var u model.User
+	err := scanUser(db.QueryRow(`
+		SELECT id, name, email, username, password_hash, is_admin, is_team_manager, is_active, deleted_at, created_at, updated_at
+		FROM users
+		WHERE deleted_at IS NULL
+		  AND (email = $1 OR lower(username) = lower($1))
+	`, login), &u)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.User{}, ErrUserNotFound
+	}
+	if err != nil {
+		return model.User{}, fmt.Errorf("get user by login: %w", err)
+	}
+	return u, nil
+}
+
 // GetUserByEmail retrieves a user by email address.
 // Excludes soft-deleted users (prevents login as deleted user).
 func GetUserByEmail(db *sql.DB, email string) (model.User, error) {
 	var u model.User
-	err := db.QueryRow(`
-		SELECT id, name, email, password_hash, is_admin, is_team_manager, is_active, deleted_at, created_at, updated_at
+	err := scanUser(db.QueryRow(`
+		SELECT id, name, email, username, password_hash, is_admin, is_team_manager, is_active, deleted_at, created_at, updated_at
 		FROM users WHERE email = $1 AND deleted_at IS NULL
-	`, email).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.IsAdmin, &u.IsTeamManager, &u.IsActive, &u.DeletedAt, &u.CreatedAt, &u.UpdatedAt)
+	`, email), &u)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.User{}, ErrUserNotFound
 	}
@@ -56,10 +99,10 @@ func GetUserByEmail(db *sql.DB, email string) (model.User, error) {
 // Includes soft-deleted users (needed for displaying creator/author names).
 func GetUserByID(db *sql.DB, id string) (model.User, error) {
 	var u model.User
-	err := db.QueryRow(`
-		SELECT id, name, email, password_hash, is_admin, is_team_manager, is_active, deleted_at, created_at, updated_at
+	err := scanUser(db.QueryRow(`
+		SELECT id, name, email, username, password_hash, is_admin, is_team_manager, is_active, deleted_at, created_at, updated_at
 		FROM users WHERE id = $1
-	`, id).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.IsAdmin, &u.IsTeamManager, &u.IsActive, &u.DeletedAt, &u.CreatedAt, &u.UpdatedAt)
+	`, id), &u)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.User{}, ErrUserNotFound
 	}
@@ -72,7 +115,7 @@ func GetUserByID(db *sql.DB, id string) (model.User, error) {
 // ListUsers returns all users including soft-deleted (for admin listing).
 func ListUsers(db *sql.DB) ([]model.User, error) {
 	rows, err := db.Query(`
-		SELECT id, name, email, password_hash, is_admin, is_team_manager, is_active, deleted_at, created_at, updated_at
+		SELECT id, name, email, username, password_hash, is_admin, is_team_manager, is_active, deleted_at, created_at, updated_at
 		FROM users ORDER BY (deleted_at IS NOT NULL), name
 	`)
 	if err != nil {
@@ -83,7 +126,7 @@ func ListUsers(db *sql.DB) ([]model.User, error) {
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.IsAdmin, &u.IsTeamManager, &u.IsActive, &u.DeletedAt, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := scanUser(rows, &u); err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
 		}
 		users = append(users, u)
@@ -93,15 +136,16 @@ func ListUsers(db *sql.DB) ([]model.User, error) {
 
 // BasicUser holds the minimal user fields for listings.
 type BasicUser struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	Email    string  `json:"email"`
+	Username *string `json:"username,omitempty"`
 }
 
-// ListActiveUsersBasic returns active, non-deleted users with only id, name, and email.
+// ListActiveUsersBasic returns active, non-deleted users with only id, name, email, and username.
 func ListActiveUsersBasic(db *sql.DB) ([]BasicUser, error) {
 	rows, err := db.Query(`
-		SELECT id, name, email FROM users WHERE is_active = true AND deleted_at IS NULL ORDER BY name
+		SELECT id, name, email, username FROM users WHERE is_active = true AND deleted_at IS NULL ORDER BY name
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("list active users: %w", err)
@@ -111,34 +155,39 @@ func ListActiveUsersBasic(db *sql.DB) ([]BasicUser, error) {
 	var users []BasicUser
 	for rows.Next() {
 		var u BasicUser
-		if err := rows.Scan(&u.ID, &u.Name, &u.Email); err != nil {
+		var emailNS sql.NullString
+		if err := rows.Scan(&u.ID, &u.Name, &emailNS, &u.Username); err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
 		}
+		u.Email = emailNS.String
 		users = append(users, u)
 	}
 	return users, rows.Err()
 }
 
-// UpdateUserAdmin updates a user's name, email, active status, and roles (admin operation).
+// UpdateUserAdmin updates a user's name, email, username, active status, and roles (admin operation).
 func UpdateUserAdmin(db *sql.DB, user model.User) (model.User, error) {
 	err := db.QueryRow(`
-		UPDATE users SET name = $1, email = $2, is_active = $3, is_admin = $4, is_team_manager = $5, updated_at = NOW()
-		WHERE id = $6
+		UPDATE users SET name = $1, email = $2, username = $3, is_active = $4, is_admin = $5, is_team_manager = $6, updated_at = NOW()
+		WHERE id = $7
 		RETURNING updated_at
-	`, user.Name, user.Email, user.IsActive, user.IsAdmin, user.IsTeamManager, user.ID).Scan(&user.UpdatedAt)
+	`, user.Name, nullString(user.Email), user.Username,
+		user.IsActive, user.IsAdmin, user.IsTeamManager, user.ID,
+	).Scan(&user.UpdatedAt)
 	if err != nil {
 		return model.User{}, fmt.Errorf("update user admin: %w", err)
 	}
 	return user, nil
 }
 
-// UpdateUser updates a user's name and email.
+// UpdateUser updates a user's name, email, and username.
 func UpdateUser(db *sql.DB, user model.User) (model.User, error) {
 	err := db.QueryRow(`
-		UPDATE users SET name = $1, email = $2, updated_at = NOW()
-		WHERE id = $3
+		UPDATE users SET name = $1, email = $2, username = $3, updated_at = NOW()
+		WHERE id = $4
 		RETURNING updated_at
-	`, user.Name, user.Email, user.ID).Scan(&user.UpdatedAt)
+	`, user.Name, nullString(user.Email), user.Username, user.ID,
+	).Scan(&user.UpdatedAt)
 	if err != nil {
 		return model.User{}, fmt.Errorf("update user: %w", err)
 	}
@@ -325,9 +374,9 @@ func DeleteUserCascade(db *sql.DB, userID, adminID string) error {
 		return fmt.Errorf("remove from teams: %w", err)
 	}
 
-	// 5. Soft delete the user
+	// 5. Soft delete the user (clear email and username to free them for reuse)
 	_, err = tx.Exec(`
-		UPDATE users SET deleted_at = NOW(), email = 'deleted_' || id, password_hash = '', is_active = false, updated_at = NOW()
+		UPDATE users SET deleted_at = NOW(), email = NULL, username = NULL, password_hash = '', is_active = false, updated_at = NOW()
 		WHERE id = $1
 	`, userID)
 	if err != nil {
@@ -337,11 +386,11 @@ func DeleteUserCascade(db *sql.DB, userID, adminID string) error {
 	return tx.Commit()
 }
 
-// SoftDeleteUser marks a user as deleted, clears their email and password, and deactivates them.
+// SoftDeleteUser marks a user as deleted, clears their email and username, and deactivates them.
 // For standalone use in tests. Production code uses DeleteUserCascade.
 func SoftDeleteUser(db *sql.DB, userID string) error {
 	_, err := db.Exec(`
-		UPDATE users SET deleted_at = NOW(), email = 'deleted_' || id, password_hash = '', is_active = false, updated_at = NOW()
+		UPDATE users SET deleted_at = NOW(), email = NULL, username = NULL, password_hash = '', is_active = false, updated_at = NOW()
 		WHERE id = $1
 	`, userID)
 	if err != nil {
