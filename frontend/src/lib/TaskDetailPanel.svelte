@@ -1,5 +1,5 @@
 <script>
-  import { updateTask, deleteTask, createTask, listComments, createComment, updateComment as apiUpdateComment, deleteComment as apiDeleteComment, getProjectMembers } from './api.js';
+  import { updateTask, deleteTask, createTask, listComments, createComment, updateComment as apiUpdateComment, deleteComment as apiDeleteComment, getProjectMembers, addBlocker, removeBlocker } from './api.js';
 
   let { task, project, currentUser, canEdit = true, onUpdate, onDelete, onClose, onTaskSelect } = $props();
 
@@ -13,6 +13,11 @@
   let saving = $state(false);
   let newSubtaskTitle = $state('');
   let addingSubtask = $state(false);
+
+  // Blocker state
+  let addingBlocker = $state(false);
+  let blockerSearch = $state('');
+  let blockerError = $state('');
 
   // Project members for assignee
   let projectMembers = $state([]);
@@ -34,6 +39,9 @@
     dueDate = task.dueDate ? task.dueDate.split('T')[0] : '';
     newSubtaskTitle = '';
     addingSubtask = false;
+    addingBlocker = false;
+    blockerSearch = '';
+    blockerError = '';
     newCommentText = '';
     editingCommentId = null;
     loadComments();
@@ -227,6 +235,47 @@
     return date.toLocaleDateString();
   }
 
+  // Blocker helpers
+  let blockerTasks = $derived(
+    (task.blockedBy || []).map(id => (project.tasks || []).find(t => t.id === id)).filter(Boolean)
+  );
+
+  let blockerSearchResults = $derived(() => {
+    if (!blockerSearch.trim()) return [];
+    const q = blockerSearch.toLowerCase();
+    return (project.tasks || []).filter(t => {
+      if (t.id === task.id) return false;
+      if ((task.blockedBy || []).includes(t.id)) return false;
+      const ref = project?.tag ? `${project.tag}-${t.taskNumber}` : '';
+      return t.title.toLowerCase().includes(q) || ref.toLowerCase().includes(q);
+    }).slice(0, 6);
+  });
+
+  function taskRef(t) {
+    return project?.tag ? `${project.tag}-${t.taskNumber}` : '';
+  }
+
+  async function handleAddBlocker(blockerTask) {
+    blockerError = '';
+    try {
+      await addBlocker(project.id, task.id, blockerTask.id);
+      blockerSearch = '';
+      addingBlocker = false;
+      onUpdate();
+    } catch (err) {
+      blockerError = err.message || 'Failed to add blocker';
+    }
+  }
+
+  async function handleRemoveBlocker(blockerId) {
+    try {
+      await removeBlocker(project.id, task.id, blockerId);
+      onUpdate();
+    } catch (err) {
+      // silently ignore — list will refresh on next onUpdate
+    }
+  }
+
   async function handleDelete() {
     if (!confirm('Delete this task?')) return;
     try {
@@ -381,6 +430,55 @@
           {/if}
         </div>
       {/if}
+
+      <!-- Blocked by section -->
+      <div class="blockers-section">
+        <label>Blocked by</label>
+        {#if blockerTasks.length > 0}
+          <div class="blocker-list">
+            {#each blockerTasks as blocker (blocker.id)}
+              <div class="blocker-item">
+                <button class="blocker-ref-btn" onclick={() => onTaskSelect?.(blocker)}>
+                  <span class="blocker-ref">{taskRef(blocker)}</span>
+                  <span class="blocker-title">{blocker.title}</span>
+                </button>
+                {#if canEdit}
+                  <button class="blocker-remove" onclick={() => handleRemoveBlocker(blocker.id)} title="Remove blocker">✕</button>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+        {#if canEdit}
+          {#if addingBlocker}
+            <div class="add-blocker-input">
+              <input
+                type="text"
+                placeholder="Search by title or task number..."
+                bind:value={blockerSearch}
+              />
+              <button class="add-cancel" onclick={() => { addingBlocker = false; blockerSearch = ''; blockerError = ''; }}>✕</button>
+            </div>
+            {#if blockerError}
+              <p class="blocker-error">{blockerError}</p>
+            {/if}
+            {#if blockerSearchResults().length > 0}
+              <div class="blocker-results">
+                {#each blockerSearchResults() as result (result.id)}
+                  <button class="blocker-result-item" onclick={() => handleAddBlocker(result)}>
+                    <span class="blocker-ref">{taskRef(result)}</span>
+                    <span class="blocker-result-title">{result.title}</span>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          {:else}
+            <button class="add-blocker-btn" onclick={() => addingBlocker = true}>
+              + Add blocker
+            </button>
+          {/if}
+        {/if}
+      </div>
 
       <!-- Comments section -->
       <div class="comments-section">
@@ -701,6 +799,141 @@
     font-size: 0.8rem;
     cursor: pointer;
     color: #888;
+  }
+
+  .blockers-section {
+    border-top: 1px solid #eee;
+    padding-top: 12px;
+  }
+
+  .blocker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 8px 0;
+  }
+
+  .blocker-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    background: #fff5f5;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+  }
+
+  .blocker-ref-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    padding: 0;
+  }
+
+  .blocker-ref-btn:hover .blocker-title {
+    text-decoration: underline;
+  }
+
+  .blocker-ref {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #c00;
+    white-space: nowrap;
+  }
+
+  .blocker-title {
+    font-size: 0.85rem;
+    color: #333;
+  }
+
+  .blocker-remove {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .blocker-remove:hover {
+    color: #c00;
+    background: #fee2e2;
+  }
+
+  .add-blocker-btn {
+    background: none;
+    border: none;
+    color: #4a90d9;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 4px 0;
+    margin-top: 4px;
+  }
+
+  .add-blocker-btn:hover {
+    text-decoration: underline;
+  }
+
+  .add-blocker-input {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 6px;
+  }
+
+  .add-blocker-input input {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  .blocker-results {
+    display: flex;
+    flex-direction: column;
+    margin-top: 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .blocker-result-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: white;
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.85rem;
+  }
+
+  .blocker-result-item:last-child {
+    border-bottom: none;
+  }
+
+  .blocker-result-item:hover {
+    background: #f0f4ff;
+  }
+
+  .blocker-result-title {
+    color: #333;
+  }
+
+  .blocker-error {
+    font-size: 0.75rem;
+    color: #c00;
+    margin: 4px 0 0;
   }
 
   .comments-section {

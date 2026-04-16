@@ -223,3 +223,11 @@ export function updateComment(projectId, taskId, commentId, text) {
 export function deleteComment(projectId, taskId, commentId) {
   return request('DELETE', `/projects/${projectId}/tasks/${taskId}/comments/${commentId}`);
 }
+
+export function addBlocker(projectId, taskId, blockerTaskId) {
+  return request('POST', `/projects/${projectId}/tasks/${taskId}/blockers`, { blockerTaskId });
+}
+
+export function removeBlocker(projectId, taskId, blockerTaskId) {
+  return request('DELETE', `/projects/${projectId}/tasks/${taskId}/blockers/${blockerTaskId}`);
+}

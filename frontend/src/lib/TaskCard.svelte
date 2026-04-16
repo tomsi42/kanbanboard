@@ -26,6 +26,15 @@
     return member.name.split(/\s+/).map(w => w[0]).join('').toUpperCase().substring(0, 2);
   });
 
+  // Actively blocked: has at least one blocker not yet in the Done column
+  let isBlocked = $derived(
+    task.blockedBy?.length > 0 &&
+    task.blockedBy.some(id => {
+      const blocker = allTasks.find(t => t.id === id);
+      return blocker && blocker.columnId !== doneColumnId;
+    })
+  );
+
   // Light tint of label colour for card background
   function lightTint(hex, opacity = 0.12) {
     if (!hex) return 'white';
@@ -46,6 +55,9 @@
       {/if}
       {#if hasSubtasks}
         <span class="parent-icon" title="Has subtasks">▤</span>
+      {/if}
+      {#if isBlocked}
+        <span class="blocked-icon" title="Blocked">●</span>
       {/if}
     </div>
     <div class="card-top-right">
@@ -119,6 +131,12 @@
   .parent-icon {
     font-size: 0.75rem;
     color: #888;
+  }
+
+  .blocked-icon {
+    font-size: 0.6rem;
+    color: #c00;
+    line-height: 1;
   }
 
   .task-ref {

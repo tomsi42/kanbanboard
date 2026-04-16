@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3-snapshot-3] - 2026-04-16
+
+### Added
+- Red ● indicator on task cards when the task has an active blocker (a blocking task not yet in Done)
+- "Blocked by" section in the task detail panel — lists blockers by task reference and title
+- Search-as-you-type to add a blocker from within the same project
+- Clicking a blocker in the detail panel navigates to that task
+- Remove button on each blocker entry
+
 ## [1.3-snapshot-2] - 2026-04-16
 
 ### Added
