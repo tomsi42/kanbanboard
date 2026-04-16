@@ -367,6 +367,149 @@ func SearchTasks(db *sql.DB, userID, query string) ([]SearchResult, error) {
 	return results, rows.Err()
 }
 
+// ContextTask holds a task with project and column context, used for agent-facing endpoints.
+type ContextTask struct {
+	model.Task
+	ProjectTag  string `json:"projectTag"`
+	ProjectName string `json:"projectName"`
+	ColumnName  string `json:"columnName"`
+}
+
+// scanContextTask scans a row that includes the standard task columns plus
+// project tag, project name, and column name (in that order at the end).
+func scanContextTask(rows interface {
+	Scan(dest ...any) error
+}, ct *ContextTask) error {
+	return rows.Scan(
+		&ct.ID, &ct.ProjectID, &ct.ColumnID, &ct.LabelID, &ct.AssigneeID,
+		&ct.CreatorID, &ct.ParentTaskID, &ct.Title, &ct.Description, &ct.Priority,
+		&ct.TargetVersion, &ct.DueDate, &ct.Position, &ct.TaskNumber, &ct.CreatedAt, &ct.UpdatedAt,
+		&ct.ProjectTag, &ct.ProjectName, &ct.ColumnName,
+	)
+}
+
+// contextTaskSelect is the SELECT/FROM/JOIN fragment shared by context-task queries.
+const contextTaskSelect = `
+	SELECT t.id, t.project_id, t.column_id, t.label_id, t.assignee_id, t.creator_id,
+		t.parent_task_id, t.title, t.description, t.priority, t.target_version,
+		t.due_date, t.position, t.task_number, t.created_at, t.updated_at,
+		p.tag, p.name, c.name
+	FROM tasks t
+	JOIN projects p ON t.project_id = p.id
+	JOIN columns c ON t.column_id = c.id`
+
+// ListTasksAssignedTo returns all tasks assigned to a user across all projects,
+// including project and column context.
+func ListTasksAssignedTo(db *sql.DB, userID string) ([]ContextTask, error) {
+	rows, err := db.Query(
+		contextTaskSelect+`
+		WHERE t.assignee_id = $1
+		ORDER BY t.updated_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list assigned tasks: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []ContextTask
+	for rows.Next() {
+		var ct ContextTask
+		if err := scanContextTask(rows, &ct); err != nil {
+			return nil, fmt.Errorf("scan assigned task: %w", err)
+		}
+		tasks = append(tasks, ct)
+	}
+	return tasks, rows.Err()
+}
+
+// GetTaskByRef retrieves a task by its human-readable project tag + task number (e.g. KB-7).
+// Returns ErrTaskNotFound if no matching task exists.
+func GetTaskByRef(db *sql.DB, tag string, taskNumber int) (ContextTask, error) {
+	var ct ContextTask
+	err := scanContextTask(
+		db.QueryRow(
+			contextTaskSelect+`
+			WHERE upper(p.tag) = upper($1) AND t.task_number = $2`,
+			tag, taskNumber,
+		),
+		&ct,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ContextTask{}, ErrTaskNotFound
+	}
+	if err != nil {
+		return ContextTask{}, fmt.Errorf("get task by ref: %w", err)
+	}
+	return ct, nil
+}
+
+// HandoffTask atomically moves a task to a new column and optionally reassigns it.
+// assigneeID == nil means "leave assignee unchanged"; pointer to "" means "unassign".
+func HandoffTask(db *sql.DB, taskID, newColumnID string, assigneeID *string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var oldColumnID string
+	if err := tx.QueryRow("SELECT column_id FROM tasks WHERE id = $1", taskID).Scan(&oldColumnID); err != nil {
+		return fmt.Errorf("get current column: %w", err)
+	}
+
+	// Update column
+	if _, err := tx.Exec(
+		"UPDATE tasks SET column_id = $1, updated_at = NOW() WHERE id = $2",
+		newColumnID, taskID,
+	); err != nil {
+		return fmt.Errorf("move task: %w", err)
+	}
+
+	// Cascade column change to same-column descendants
+	if oldColumnID != newColumnID {
+		if _, err := tx.Exec(`
+			WITH RECURSIVE descendants AS (
+				SELECT id FROM tasks WHERE parent_task_id = $1 AND column_id = $2
+				UNION ALL
+				SELECT t.id FROM tasks t
+				JOIN descendants d ON t.parent_task_id = d.id
+				WHERE t.column_id = $2
+			)
+			UPDATE tasks SET column_id = $3, updated_at = NOW()
+			WHERE id IN (SELECT id FROM descendants)
+		`, taskID, oldColumnID, newColumnID); err != nil {
+			return fmt.Errorf("move descendants: %w", err)
+		}
+	}
+
+	// Reorder columns
+	if err := reorderColumn(tx, newColumnID, taskID, 9999); err != nil {
+		return fmt.Errorf("reorder target column: %w", err)
+	}
+	if oldColumnID != newColumnID {
+		if err := reorderColumn(tx, oldColumnID, "", -1); err != nil {
+			return fmt.Errorf("reorder source column: %w", err)
+		}
+	}
+
+	// Update assignee if requested
+	if assigneeID != nil {
+		var nullableID *string
+		if *assigneeID != "" {
+			nullableID = assigneeID
+		}
+		if _, err := tx.Exec(
+			"UPDATE tasks SET assignee_id = $1, updated_at = NOW() WHERE id = $2",
+			nullableID, taskID,
+		); err != nil {
+			return fmt.Errorf("update assignee: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
 // DeleteTask removes a task by ID.
 func DeleteTask(db *sql.DB, taskID string) error {
 	_, err := db.Exec("DELETE FROM tasks WHERE id = $1", taskID)

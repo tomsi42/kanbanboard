@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"kanbanboard/internal/middleware"
@@ -357,6 +359,96 @@ func HandleRemoveBlocker(db *sql.DB) http.HandlerFunc {
 
 		if err := store.RemoveBlocker(db, blockerID, taskID); err != nil {
 			writeError(w, http.StatusInternalServerError, "Failed to remove blocker")
+			return
+		}
+
+		task, err := store.GetTask(db, taskID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to get task")
+			return
+		}
+		writeJSON(w, http.StatusOK, task)
+	}
+}
+
+// HandleListMyTasks returns all tasks assigned to the current user across all projects.
+func HandleListMyTasks(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := middleware.UserFromContext(r.Context())
+
+		tasks, err := store.ListTasksAssignedTo(db, user.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to list assigned tasks")
+			return
+		}
+		if tasks == nil {
+			tasks = []store.ContextTask{}
+		}
+		writeJSON(w, http.StatusOK, tasks)
+	}
+}
+
+// HandleGetTaskByRef retrieves a task by its TAG-N reference (e.g. KB-7).
+func HandleGetTaskByRef(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ref := r.PathValue("ref")
+
+		// Parse TAG-N: split on last hyphen
+		idx := strings.LastIndex(ref, "-")
+		if idx < 1 || idx == len(ref)-1 {
+			writeError(w, http.StatusBadRequest, "Invalid task reference (expected TAG-N, e.g. KB-7)")
+			return
+		}
+		tag := ref[:idx]
+		numStr := ref[idx+1:]
+		num, err := strconv.Atoi(numStr)
+		if err != nil || num < 1 {
+			writeError(w, http.StatusBadRequest, "Invalid task reference (expected TAG-N, e.g. KB-7)")
+			return
+		}
+
+		task, err := store.GetTaskByRef(db, tag, num)
+		if errors.Is(err, store.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, "Task not found")
+			return
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to get task")
+			return
+		}
+		writeJSON(w, http.StatusOK, task)
+	}
+}
+
+type handoffTaskRequest struct {
+	ColumnID   string  `json:"columnId"`
+	AssigneeID *string `json:"assigneeId"`
+}
+
+// HandleHandoffTask atomically moves a task to a new column and optionally reassigns it.
+// POST /api/v1/projects/{projectId}/tasks/{taskId}/handoff
+func HandleHandoffTask(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := middleware.UserFromContext(r.Context())
+		projectID := r.PathValue("projectId")
+		taskID := r.PathValue("taskId")
+
+		if _, ok := checkEditPermission(db, w, projectID, user); !ok {
+			return
+		}
+
+		var req handoffTaskRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+		if req.ColumnID == "" {
+			writeError(w, http.StatusBadRequest, "columnId is required")
+			return
+		}
+
+		if err := store.HandoffTask(db, taskID, req.ColumnID, req.AssigneeID); err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to handoff task")
 			return
 		}
 

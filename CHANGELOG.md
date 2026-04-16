@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3-snapshot-8] - 2026-04-16
+
+### Added
+- `cmd/mcp/` — MCP server binary (`kanban-mcp`) over stdio transport (JSON-RPC 2.0)
+- 5 MCP tools: `list_my_tasks`, `get_task`, `create_task`, `handoff_task`, `add_comment`
+- `GET /api/v1/tasks/mine` — tasks assigned to current user with project + column context
+- `GET /api/v1/tasks/by-ref/{ref}` — task lookup by TAG-N reference (e.g. KB-7)
+- `POST /api/v1/projects/{projectId}/tasks/{taskId}/handoff` — atomic move column + reassign
+- `store.ListTasksAssignedTo`, `store.GetTaskByRef`, `store.HandoffTask`
+- `store.ContextTask` type: task + projectTag + projectName + columnName
+- MCP server configured via `KANBAN_API_URL` and `KANBAN_API_TOKEN` env vars
+
 ## [1.3-snapshot-7] - 2026-04-16
 
 ### Added
