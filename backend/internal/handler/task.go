@@ -54,9 +54,14 @@ func HandleCreateTask(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Default to first column if none specified
 		if req.ColumnID == "" {
-			writeError(w, http.StatusBadRequest, "Column ID is required")
-			return
+			cols, err := store.GetColumnsForProject(db, projectID)
+			if err != nil || len(cols) == 0 {
+				writeError(w, http.StatusBadRequest, "Column ID is required")
+				return
+			}
+			req.ColumnID = cols[0].ID
 		}
 
 		// Enforce maximum nesting depth of 2 (task → subtask → sub-subtask)

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3.0] - 2026-04-16
+
+### Fixed
+- `HandleCreateTask` now defaults to the first project column when `columnId` is omitted — MCP `create_task` tool no longer returns 400 when column is unspecified
+- Vite dev server updated to 8.0.8, resolving three high-severity path-traversal and file-read advisories (dev-only, not in production image)
+
+### Added (code health)
+- Store integration tests for `GetTaskByRef`, `ListTasksAssignedTo`, `HandoffTask`, `CreateApiToken`, `GetUserByToken`, `ListApiTokens`, `DeleteApiToken`
+
 ## [1.3-snapshot-8] - 2026-04-16
 
 ### Added

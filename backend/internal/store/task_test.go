@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"testing"
 
 	"kanbanboard/internal/model"
@@ -505,5 +506,193 @@ func TestSearchTasks_respectsVisibility(t *testing.T) {
 	}
 	if len(results) != 1 {
 		t.Errorf("got %d results, want 1", len(results))
+	}
+}
+
+func TestGetTaskByRef_found(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	user := seedUser(t, db, "Alice", "alice@test.com")
+
+	project, err := CreateProject(db, model.Project{
+		Name: "Kanban", Tag: "KB", Visibility: "private", OwnerUserID: &user.ID,
+	})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	_ = CreateDefaultColumns(db, project.ID)
+	columns, _ := GetColumnsForProject(db, project.ID)
+
+	// Create two tasks — we want the second one (KB-2)
+	seedTask(t, db, project.ID, columns[0].ID, user.ID, "First task")
+	second := seedTask(t, db, project.ID, columns[0].ID, user.ID, "Second task")
+
+	ct, err := GetTaskByRef(db, "KB", second.TaskNumber)
+	if err != nil {
+		t.Fatalf("GetTaskByRef: %v", err)
+	}
+	if ct.ID != second.ID {
+		t.Errorf("got task ID %s, want %s", ct.ID, second.ID)
+	}
+	if ct.ProjectTag != "KB" {
+		t.Errorf("ProjectTag = %q, want KB", ct.ProjectTag)
+	}
+	if ct.ColumnName == "" {
+		t.Error("ColumnName should be populated")
+	}
+}
+
+func TestGetTaskByRef_caseInsensitive(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	user := seedUser(t, db, "Alice", "alice@test.com")
+
+	project, err := CreateProject(db, model.Project{
+		Name: "Widget", Tag: "WG", Visibility: "private", OwnerUserID: &user.ID,
+	})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	_ = CreateDefaultColumns(db, project.ID)
+	columns, _ := GetColumnsForProject(db, project.ID)
+
+	task := seedTask(t, db, project.ID, columns[0].ID, user.ID, "My task")
+
+	ct, err := GetTaskByRef(db, "wg", task.TaskNumber) // lowercase tag
+	if err != nil {
+		t.Fatalf("GetTaskByRef (lowercase): %v", err)
+	}
+	if ct.ID != task.ID {
+		t.Errorf("got task ID %s, want %s", ct.ID, task.ID)
+	}
+}
+
+func TestGetTaskByRef_notFound(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+
+	_, err := GetTaskByRef(db, "ZZ", 999)
+	if !errors.Is(err, ErrTaskNotFound) {
+		t.Errorf("want ErrTaskNotFound, got %v", err)
+	}
+}
+
+func TestListTasksAssignedTo(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	alice := seedUser(t, db, "Alice", "alice@test.com")
+	bob := seedUser(t, db, "Bob", "bob@test.com")
+
+	project := seedProject(t, db, "Board", &alice.ID, nil)
+	columns, _ := GetColumnsForProject(db, project.ID)
+
+	t1 := seedTask(t, db, project.ID, columns[0].ID, alice.ID, "Alice task")
+	t2 := seedTask(t, db, project.ID, columns[0].ID, alice.ID, "Bob task")
+
+	// Assign t1 to alice, t2 to bob
+	t1.AssigneeID = &alice.ID
+	UpdateTask(db, t1)
+	t2.AssigneeID = &bob.ID
+	UpdateTask(db, t2)
+
+	tasks, err := ListTasksAssignedTo(db, alice.ID)
+	if err != nil {
+		t.Fatalf("ListTasksAssignedTo: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("got %d tasks, want 1", len(tasks))
+	}
+	if tasks[0].ID != t1.ID {
+		t.Errorf("got task %s, want %s", tasks[0].ID, t1.ID)
+	}
+	if tasks[0].ColumnName == "" {
+		t.Error("ColumnName should be populated")
+	}
+	if tasks[0].ProjectName != "Board" {
+		t.Errorf("ProjectName = %q, want Board", tasks[0].ProjectName)
+	}
+}
+
+func TestHandoffTask_movesAndReassigns(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	alice := seedUser(t, db, "Alice", "alice@test.com")
+	bob := seedUser(t, db, "Bob", "bob@test.com")
+
+	project := seedProject(t, db, "Board", &alice.ID, nil)
+	columns, _ := GetColumnsForProject(db, project.ID)
+	col0, col1 := columns[0].ID, columns[1].ID
+
+	task := seedTask(t, db, project.ID, col0, alice.ID, "Work item")
+	task.AssigneeID = &alice.ID
+	UpdateTask(db, task)
+
+	if err := HandoffTask(db, task.ID, col1, &bob.ID); err != nil {
+		t.Fatalf("HandoffTask: %v", err)
+	}
+
+	updated, err := GetTask(db, task.ID)
+	if err != nil {
+		t.Fatalf("GetTask: %v", err)
+	}
+	if updated.ColumnID != col1 {
+		t.Errorf("ColumnID = %s, want %s", updated.ColumnID, col1)
+	}
+	if updated.AssigneeID == nil || *updated.AssigneeID != bob.ID {
+		t.Errorf("AssigneeID = %v, want %s", updated.AssigneeID, bob.ID)
+	}
+}
+
+func TestHandoffTask_unassigns(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	alice := seedUser(t, db, "Alice", "alice@test.com")
+
+	project := seedProject(t, db, "Board", &alice.ID, nil)
+	columns, _ := GetColumnsForProject(db, project.ID)
+	col0, col1 := columns[0].ID, columns[1].ID
+
+	task := seedTask(t, db, project.ID, col0, alice.ID, "Work item")
+	task.AssigneeID = &alice.ID
+	UpdateTask(db, task)
+
+	emptyID := ""
+	if err := HandoffTask(db, task.ID, col1, &emptyID); err != nil {
+		t.Fatalf("HandoffTask: %v", err)
+	}
+
+	updated, err := GetTask(db, task.ID)
+	if err != nil {
+		t.Fatalf("GetTask: %v", err)
+	}
+	if updated.AssigneeID != nil {
+		t.Errorf("AssigneeID should be nil after unassign, got %v", updated.AssigneeID)
+	}
+}
+
+func TestHandoffTask_nilAssigneePreserves(t *testing.T) {
+	db := testDB(t)
+	cleanTables(t, db)
+	alice := seedUser(t, db, "Alice", "alice@test.com")
+
+	project := seedProject(t, db, "Board", &alice.ID, nil)
+	columns, _ := GetColumnsForProject(db, project.ID)
+	col0, col1 := columns[0].ID, columns[1].ID
+
+	task := seedTask(t, db, project.ID, col0, alice.ID, "Work item")
+	task.AssigneeID = &alice.ID
+	UpdateTask(db, task)
+
+	// nil assigneeID means "leave unchanged"
+	if err := HandoffTask(db, task.ID, col1, nil); err != nil {
+		t.Fatalf("HandoffTask: %v", err)
+	}
+
+	updated, err := GetTask(db, task.ID)
+	if err != nil {
+		t.Fatalf("GetTask: %v", err)
+	}
+	if updated.AssigneeID == nil || *updated.AssigneeID != alice.ID {
+		t.Errorf("AssigneeID should be preserved as %s, got %v", alice.ID, updated.AssigneeID)
 	}
 }
