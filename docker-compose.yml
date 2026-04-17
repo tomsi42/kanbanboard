@@ -31,5 +31,18 @@ services:
       PORT: 8080
       STATIC_DIR: /app/static
 
+  mcp:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.mcp
+    profiles:
+      - mcp
+    depends_on:
+      - app
+    stdin_open: true
+    environment:
+      KANBAN_API_URL: http://app:8080
+      KANBAN_API_TOKEN: ""  # set via KANBAN_API_TOKEN env var or override
+
 volumes:
   pgdata:
