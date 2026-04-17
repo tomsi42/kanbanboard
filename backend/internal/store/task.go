@@ -67,13 +67,25 @@ func CreateTask(db *sql.DB, task model.Task) (model.Task, error) {
 	return task, nil
 }
 
+// taskColumns is the SELECT column list for model.Task queries (requires table alias t).
+const taskColumns = `t.id, t.project_id, t.column_id, t.label_id, t.assignee_id, t.creator_id,
+		t.parent_task_id, t.title, t.description, t.priority, t.target_version,
+		t.due_date, t.position, t.task_number, t.created_at, t.updated_at`
+
+// scanTask scans a task row into t.
+func scanTask(row interface{ Scan(dest ...any) error }, t *model.Task) error {
+	return row.Scan(
+		&t.ID, &t.ProjectID, &t.ColumnID, &t.LabelID, &t.AssigneeID,
+		&t.CreatorID, &t.ParentTaskID, &t.Title, &t.Description, &t.Priority,
+		&t.TargetVersion, &t.DueDate, &t.Position, &t.TaskNumber, &t.CreatedAt, &t.UpdatedAt,
+	)
+}
+
 // ListTasksForProject returns all tasks for a project, ordered by column then position.
 // BlockedBy is hydrated for each task in a single additional query.
 func ListTasksForProject(db *sql.DB, projectID string) ([]model.Task, error) {
 	rows, err := db.Query(`
-		SELECT t.id, t.project_id, t.column_id, t.label_id, t.assignee_id, t.creator_id,
-			t.parent_task_id, t.title, t.description, t.priority, t.target_version,
-			t.due_date, t.position, t.task_number, t.created_at, t.updated_at
+		SELECT `+taskColumns+`
 		FROM tasks t
 		JOIN columns c ON t.column_id = c.id
 		WHERE t.project_id = $1
@@ -87,9 +99,7 @@ func ListTasksForProject(db *sql.DB, projectID string) ([]model.Task, error) {
 	var tasks []model.Task
 	for rows.Next() {
 		var t model.Task
-		if err := rows.Scan(&t.ID, &t.ProjectID, &t.ColumnID, &t.LabelID, &t.AssigneeID,
-			&t.CreatorID, &t.ParentTaskID, &t.Title, &t.Description, &t.Priority,
-			&t.TargetVersion, &t.DueDate, &t.Position, &t.TaskNumber, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := scanTask(rows, &t); err != nil {
 			return nil, fmt.Errorf("scan task: %w", err)
 		}
 		tasks = append(tasks, t)
@@ -114,9 +124,7 @@ func ListTasksForProject(db *sql.DB, projectID string) ([]model.Task, error) {
 // ListSubtasks returns all subtasks of a parent task.
 func ListSubtasks(db *sql.DB, parentTaskID string) ([]model.Task, error) {
 	rows, err := db.Query(`
-		SELECT t.id, t.project_id, t.column_id, t.label_id, t.assignee_id, t.creator_id,
-			t.parent_task_id, t.title, t.description, t.priority, t.target_version,
-			t.due_date, t.position, t.task_number, t.created_at, t.updated_at
+		SELECT `+taskColumns+`
 		FROM tasks t
 		WHERE t.parent_task_id = $1
 		ORDER BY t.created_at
@@ -129,9 +137,7 @@ func ListSubtasks(db *sql.DB, parentTaskID string) ([]model.Task, error) {
 	var tasks []model.Task
 	for rows.Next() {
 		var t model.Task
-		if err := rows.Scan(&t.ID, &t.ProjectID, &t.ColumnID, &t.LabelID, &t.AssigneeID,
-			&t.CreatorID, &t.ParentTaskID, &t.Title, &t.Description, &t.Priority,
-			&t.TargetVersion, &t.DueDate, &t.Position, &t.TaskNumber, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := scanTask(rows, &t); err != nil {
 			return nil, fmt.Errorf("scan subtask: %w", err)
 		}
 		tasks = append(tasks, t)
@@ -168,14 +174,10 @@ func GetTaskDepth(db *sql.DB, taskID string) (int, error) {
 // GetTask retrieves a task by ID. BlockedBy is hydrated.
 func GetTask(db *sql.DB, taskID string) (model.Task, error) {
 	var t model.Task
-	err := db.QueryRow(`
-		SELECT id, project_id, column_id, label_id, assignee_id, creator_id,
-			parent_task_id, title, description, priority, target_version,
-			due_date, position, task_number, created_at, updated_at
-		FROM tasks WHERE id = $1
-	`, taskID).Scan(&t.ID, &t.ProjectID, &t.ColumnID, &t.LabelID, &t.AssigneeID,
-		&t.CreatorID, &t.ParentTaskID, &t.Title, &t.Description, &t.Priority,
-		&t.TargetVersion, &t.DueDate, &t.Position, &t.TaskNumber, &t.CreatedAt, &t.UpdatedAt)
+	err := scanTask(db.QueryRow(`
+		SELECT `+taskColumns+`
+		FROM tasks t WHERE t.id = $1
+	`, taskID), &t)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.Task{}, ErrTaskNotFound
 	}
@@ -335,10 +337,7 @@ type SearchResult struct {
 // Respects the same visibility rules as ListProjectsForUser.
 func SearchTasks(db *sql.DB, userID, query string) ([]SearchResult, error) {
 	rows, err := db.Query(`
-		SELECT DISTINCT t.id, t.project_id, t.column_id, t.label_id, t.assignee_id, t.creator_id,
-			t.parent_task_id, t.title, t.description, t.priority, t.target_version,
-			t.due_date, t.position, t.task_number, t.created_at, t.updated_at,
-			p.tag, p.name
+		SELECT DISTINCT `+taskColumns+`, p.tag, p.name
 		FROM tasks t
 		JOIN projects p ON t.project_id = p.id
 		LEFT JOIN team_members tm ON p.owner_team_id = tm.team_id
@@ -390,10 +389,7 @@ func scanContextTask(rows interface {
 
 // contextTaskSelect is the SELECT/FROM/JOIN fragment shared by context-task queries.
 const contextTaskSelect = `
-	SELECT t.id, t.project_id, t.column_id, t.label_id, t.assignee_id, t.creator_id,
-		t.parent_task_id, t.title, t.description, t.priority, t.target_version,
-		t.due_date, t.position, t.task_number, t.created_at, t.updated_at,
-		p.tag, p.name, c.name
+	SELECT ` + taskColumns + `, p.tag, p.name, c.name
 	FROM tasks t
 	JOIN projects p ON t.project_id = p.id
 	JOIN columns c ON t.column_id = c.id`
